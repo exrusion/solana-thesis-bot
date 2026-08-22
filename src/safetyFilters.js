@@ -25,7 +25,13 @@ export async function passesSafetyFilters(pair) {
     reasons.push(`market cap $${(pair.marketCapUsd || 0).toFixed(0)} below minimum $${config.minMarketCapUsd}`);
   }
 
-  if (pair.volume1h < config.minHourlyVolumeUsd) {
+  // Volume check only applies to graduated tokens, where DexScreener gives
+  // us real trade volume. For bonding-curve tokens we have no trade
+  // history, so volume1h is just a copy of liquidity — checking it there
+  // would silently enforce a second, stricter liquidity floor rather than
+  // measuring anything new.
+  const isBondingCurve = pair.dexId === 'pumpfun';
+  if (!isBondingCurve && pair.volume1h < config.minHourlyVolumeUsd) {
     reasons.push(`1h volume $${pair.volume1h.toFixed(0)} below minimum $${config.minHourlyVolumeUsd}`);
   }
 

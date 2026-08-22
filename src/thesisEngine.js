@@ -27,16 +27,28 @@ Respond with ONLY a JSON object, no other text, matching this shape:
 }`;
 
 export async function generateThesis(stats) {
-  const userPrompt = `Token: $${stats.symbol}
-Age: ${stats.ageHours?.toFixed(1) ?? 'unknown'}h
-Market cap: $${stats.marketCapUsd?.toFixed(0) ?? 'unknown'}
-Liquidity: $${stats.liquidityUsd.toFixed(0)}
-1h volume: $${stats.volume1h.toFixed(0)}
+  // For bonding-curve tokens we have no real trade history — volume1h is
+  // just a copy of liquidity. Showing it as "volume" would invite the
+  // model to reason about a number that doesn't mean what it says.
+  const isBondingCurve = stats.dexId === 'pumpfun';
+
+  const volumeLines = isBondingCurve
+    ? `Trade volume: not available (still on bonding curve — no trade history yet)
+Real SOL committed to curve: $${stats.liquidityUsd.toFixed(0)}
+Growth in committed SOL since first seen: ${stats.priceChange1h.toFixed(1)}%`
+    : `1h volume: $${stats.volume1h.toFixed(0)}
 6h volume: $${stats.volume6h.toFixed(0)}
 24h volume: $${stats.volume24h.toFixed(0)}
 1h price change: ${stats.priceChange1h.toFixed(1)}%
 6h price change: ${stats.priceChange6h.toFixed(1)}%
-24h price change: ${stats.priceChange24h.toFixed(1)}%
+24h price change: ${stats.priceChange24h.toFixed(1)}%`;
+
+  const userPrompt = `Token: $${stats.symbol}
+Stage: ${isBondingCurve ? 'still on pump.fun bonding curve (pre-graduation)' : 'graduated to AMM'}
+Age: ${stats.ageHours?.toFixed(1) ?? 'unknown'}h
+Market cap: $${stats.marketCapUsd?.toFixed(0) ?? 'unknown'}
+Liquidity: $${stats.liquidityUsd.toFixed(0)}
+${volumeLines}
 Top holder concentration: ${stats.topHolderPercent?.toFixed(1) ?? 'unknown'}%`;
 
   const res = await axios.post(
