@@ -35,4 +35,5 @@ export const config = {
 
   scanIntervalMs: parseInt(process.env.SCAN_INTERVAL_MS || '60000', 10),
   port: parseInt(process.env.PORT || '3000', 10),
+  dataDir: process.env.DATA_DIR || 'data',
 };

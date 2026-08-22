@@ -1,9 +1,10 @@
 import fs from 'fs';
 import path from 'path';
+import { config } from './config.js';
 import { fetchBondingCurveState, getSolUsdPrice } from './bondingCurve.js';
 import { getPairsForMint } from './dexscreener.js';
 
-const DATA_DIR = path.resolve('data');
+const DATA_DIR = path.resolve(config.dataDir);
 const OUTCOMES_FILE = path.join(DATA_DIR, 'outcomes.json');
 
 // Follow-up windows — matches the intervals commonly used in published

@@ -1,7 +1,8 @@
 import fs from 'fs';
 import path from 'path';
+import { config } from './config.js';
 
-const DATA_DIR = path.resolve('data');
+const DATA_DIR = path.resolve(config.dataDir);
 const POSITIONS_FILE = path.join(DATA_DIR, 'positions.json');
 const THESIS_LOG_FILE = path.join(DATA_DIR, 'thesis-log.json');
 const DAILY_PNL_FILE = path.join(DATA_DIR, 'daily-pnl.json');
