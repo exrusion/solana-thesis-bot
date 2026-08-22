@@ -119,6 +119,16 @@ async function manageOpenPositions() {
           realizedPnlSol,
         });
         recordRealizedPnl(realizedPnlSol);
+        logThesis({
+          type: 'exit',
+          symbol: pos.symbol,
+          mintAddress: pos.mintAddress,
+          url: `https://pump.fun/coin/${pos.mintAddress}`,
+          reasons: [
+            `stop-loss tripped at ${pnlPercent.toFixed(1)}% — the ${config.stopLossPercent}% floor doesn't negotiate.`,
+            `selling before this becomes a lesson instead of a trade. realized: ${realizedPnlSol >= 0 ? '+' : ''}${realizedPnlSol.toFixed(3)} SOL.`,
+          ],
+        });
       } catch (err) {
         console.error(`[exit] sell failed for ${pos.symbol}: ${err.message}`);
       }

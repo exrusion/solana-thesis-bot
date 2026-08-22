@@ -170,6 +170,9 @@ function renderEntry(entry) {
     const held = entry.thesis?.decision === 'hold';
     badgeClass = held ? 'badge-hold' : 'badge-fail';
     badgeText = held ? 'HOLD' : 'FAIL';
+  } else if (entry.type === 'exit') {
+    badgeClass = 'badge-fail';
+    badgeText = 'EXITED';
   }
 
   const statsRow = entry.stats
