@@ -2,7 +2,10 @@ import { Connection, Keypair, PublicKey } from '@solana/web3.js';
 import bs58 from 'bs58';
 import { config } from './config.js';
 
-export const connection = new Connection(config.heliusRpcUrl, 'confirmed');
+export const connection = new Connection(config.heliusRpcUrl, {
+  commitment: 'confirmed',
+  wsEndpoint: config.heliusRpcUrl.replace('https://', 'wss://'),
+});
 
 export const wallet = Keypair.fromSecretKey(bs58.decode(config.walletPrivateKey));
 

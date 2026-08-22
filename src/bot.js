@@ -1,9 +1,10 @@
 import './api.js'; // runs the API + serves the frontend in this same process
 import { config } from './config.js';
-import { getCandidatePairs, getPairData } from './dexscreener.js';
+import { getCandidatePairs, getPairData, getPairsForMint } from './dexscreener.js';
 import { passesSafetyFilters } from './safetyFilters.js';
 import { generateThesis } from './thesisEngine.js';
 import { buyToken, sellToken } from './jupiter.js';
+import { startPumpFunListener, drainFreshMints } from './pumpfunListener.js';
 import {
   getOpenPositions,
   openPosition,
@@ -65,8 +66,26 @@ async function scanForNewPositions() {
   }
 
   const openMints = new Set(open.map((p) => p.mintAddress));
-  const candidates = await getCandidatePairs();
-  console.log(`[scan] fetched ${candidates.length} candidate pairs`);
+
+  const freshMintAddresses = drainFreshMints();
+  const freshCandidates = [];
+  for (const mintAddress of freshMintAddresses) {
+    if (openMints.has(mintAddress)) continue;
+    const pair = await getPairsForMint(mintAddress);
+    if (pair) freshCandidates.push(pair); // null = not indexed by DexScreener yet, skip
+  }
+
+  const boostCandidates = await getCandidatePairs();
+
+  const candidateMap = new Map();
+  for (const pair of [...freshCandidates, ...boostCandidates]) {
+    if (pair.mintAddress) candidateMap.set(pair.mintAddress, pair);
+  }
+  const candidates = [...candidateMap.values()];
+
+  console.log(
+    `[scan] ${freshCandidates.length} fresh on-chain + ${boostCandidates.length} boosted = ${candidates.length} unique candidates`
+  );
 
   let passedCount = 0;
 
@@ -151,5 +170,6 @@ console.log('solana-thesis-bot starting.');
 console.log(`max position size: ${config.maxPositionSizeSol} SOL | max concurrent: ${config.maxConcurrentPositions}`);
 console.log(`stop-loss: ${config.stopLossPercent}% | daily loss limit: ${config.maxDailyLossSol} SOL`);
 
+startPumpFunListener();
 tick();
 setInterval(tick, config.scanIntervalMs);
