@@ -5,18 +5,21 @@ import { connection } from './rpc.js';
 // account index 0 is always the new token's mint.
 const PUMP_PROGRAM_ID = new PublicKey('6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P');
 
-const MAX_QUEUE = 200;
+const MAX_QUEUE = 150; // per-queue cap
 const PROCESS_INTERVAL_MS = 1200;
 const MAX_RETRIES = 5;
 const RETRY_DELAY_MS = 600;
 
-// Buy/sell events vastly outnumber creates. Sampling these is how we
-// discover EXISTING actively-traded tokens (not just ones created after
-// this bot started) without hammering the RPC with every single trade.
-const TRADE_SAMPLE_RATE = 50; // process roughly 1 in 50 trade signatures
+// Trade signals are sampled much more sparsely than before — the previous
+// rate (1-in-50) was flooding the processing queue and risked crowding out
+// creates entirely, since both shared one queue with the same throughput.
+const TRADE_SAMPLE_RATE = 400; // process roughly 1 in 400 trade signatures
 
 const freshMints = []; // resolved: { mintAddress, detectedAt }
-const pendingSignatures = []; // { signature, isCreate } awaiting resolution
+// Separate queues so high-volume trade sampling can never starve creates —
+// creates are always drained first, trades only fill leftover capacity.
+const pendingCreates = [];
+const pendingTrades = [];
 const seenMints = new Set();
 const seenSignatures = new Set();
 let subscribed = false;
@@ -59,15 +62,20 @@ function handleLog({ signature, logs }) {
     stats.tradeLogsSeen++;
     tradeCounter++;
     if (tradeCounter % TRADE_SAMPLE_RATE !== 0) return; // sampled out — most trades are skipped on purpose
+    seenSignatures.add(signature);
+    pendingTrades.push(signature);
+    if (pendingTrades.length > MAX_QUEUE) {
+      const removed = pendingTrades.shift();
+      seenSignatures.delete(removed);
+    }
   } else {
     stats.createLogsSeen++;
-  }
-
-  seenSignatures.add(signature);
-  pendingSignatures.push({ signature, isCreate });
-  if (pendingSignatures.length > MAX_QUEUE) {
-    const removed = pendingSignatures.shift();
-    seenSignatures.delete(removed.signature);
+    seenSignatures.add(signature);
+    pendingCreates.push(signature);
+    if (pendingCreates.length > MAX_QUEUE) {
+      const removed = pendingCreates.shift();
+      seenSignatures.delete(removed);
+    }
   }
 }
 
@@ -99,10 +107,16 @@ async function resolveMintFromSignature(signature, isCreate) {
 }
 
 async function processNextPending() {
-  const item = pendingSignatures.shift();
-  if (!item) return;
+  // creates always go first — trades only get processed once creates are caught up
+  let signature = pendingCreates.shift();
+  let isCreate = true;
+  if (!signature) {
+    signature = pendingTrades.shift();
+    isCreate = false;
+  }
+  if (!signature) return;
 
-  const mint = await resolveMintFromSignature(item.signature, item.isCreate);
+  const mint = await resolveMintFromSignature(signature, isCreate);
   if (mint) {
     if (!mint.endsWith('pump')) stats.suspiciousMints++;
     enqueueMint(mint);
@@ -118,7 +132,7 @@ export function startPumpFunListener() {
   subscribed = true;
   connection.onLogs(PUMP_PROGRAM_ID, handleLog, 'confirmed');
   setInterval(processNextPending, PROCESS_INTERVAL_MS);
-  console.log('[pumpfun] listening on-chain for new AND actively-traded existing tokens');
+  console.log('[pumpfun] listening on-chain for new AND actively-traded existing tokens (creates prioritized)');
 }
 
 /** Returns and clears mints detected since the last call. */
@@ -128,5 +142,5 @@ export function drainFreshMints() {
 
 /** Diagnostics for logging — how much traffic the listener is actually seeing. */
 export function getListenerStats() {
-  return { ...stats, pendingCount: pendingSignatures.length };
+  return { ...stats, pendingCreates: pendingCreates.length, pendingTrades: pendingTrades.length };
 }

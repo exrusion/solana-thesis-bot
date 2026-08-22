@@ -222,7 +222,7 @@ async function scanForNewPositions() {
   );
   const listenerStats = getListenerStats();
   console.log(
-    `[pumpfun] logs seen: ${listenerStats.logsSeen} | creates: ${listenerStats.createLogsSeen} | trades sampled: ${listenerStats.tradeLogsSeen} | resolved: ${listenerStats.resolvedTotal} | resolve failures: ${listenerStats.resolveFailures} | suspicious (no "pump" suffix): ${listenerStats.suspiciousMints} | pending: ${listenerStats.pendingCount}`
+    `[pumpfun] logs seen: ${listenerStats.logsSeen} | creates: ${listenerStats.createLogsSeen} | trades sampled: ${listenerStats.tradeLogsSeen} | resolved: ${listenerStats.resolvedTotal} | resolve failures: ${listenerStats.resolveFailures} | suspicious (no "pump" suffix): ${listenerStats.suspiciousMints} | queue: ${listenerStats.pendingCreates} creates / ${listenerStats.pendingTrades} trades`
   );
 
   let topPending = [];
