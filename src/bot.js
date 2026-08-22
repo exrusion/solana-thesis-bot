@@ -24,6 +24,10 @@ let pendingFreshMints = []; // { mintAddress, firstSeenAt, lastRealSolReservesSo
 let totalFreshResolved = 0;
 let totalFreshGivenUp = 0;
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function killSwitchTripped() {
   return getTodaysPnl() <= -config.maxDailyLossSol;
 }
@@ -142,6 +146,7 @@ async function scanForNewPositions() {
 
   for (const entry of toCheck) {
     if (openMints.has(entry.mintAddress)) continue; // already holding it
+    await sleep(150); // stay comfortably under Helius's rate limit across ~25 lookups/tick
 
     // bonding curve first — instant, zero indexing lag. DexScreener only as
     // a fallback for tokens that have already graduated off the curve.
@@ -155,19 +160,15 @@ async function scanForNewPositions() {
           : 0;
       entry.lastRealSolReservesSol = curve.realSolReservesSol;
 
-      const liquidityUsd = curve.realSolReservesSol * solUsd;
       const marketCapUsd = curve.marketCapSol * solUsd;
-      const closeToExpiry = now - entry.firstSeenAt > FRESH_MINT_EXPIRY_MS - config.scanIntervalMs;
 
-      if (marketCapUsd >= config.minMarketCapUsd || closeToExpiry) {
-        // worth a real verdict now — either market cap has cleared the
-        // floor, or this is its last chance before we give up on it
+      if (marketCapUsd >= config.minMarketCapUsd) {
         freshCandidates.push(
           buildBondingCurveCandidate(entry.mintAddress, curve, solUsd, entry.firstSeenAt, growthPercent)
         );
         totalFreshResolved++;
       } else {
-        stillPending.push(entry); // still under the market cap floor — keep quietly tracking
+        stillPending.push(entry); // under $10k market cap — never evaluated, just dropped if it expires
       }
       continue;
     }
