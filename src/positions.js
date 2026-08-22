@@ -95,3 +95,13 @@ export function getTodaysPnl() {
   const record = readJson(DAILY_PNL_FILE, {});
   return record[today] || 0;
 }
+
+export function getAllTimePnl() {
+  const record = readJson(DAILY_PNL_FILE, {});
+  return Object.values(record).reduce((sum, v) => sum + v, 0);
+}
+
+export function getTotalSpentSol() {
+  const positions = readJson(POSITIONS_FILE, []);
+  return positions.reduce((sum, p) => sum + (p.entrySolAmount || 0), 0);
+}

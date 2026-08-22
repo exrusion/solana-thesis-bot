@@ -14,6 +14,7 @@ import { connection, wallet } from './rpc.js';
 import { getOutcomes } from './outcomeTracker.js';
 import { getScanStats } from './scanStats.js';
 import { getRecentLogs } from './logCapture.js';
+import { getSolUsdPrice } from './bondingCurve.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -23,10 +24,21 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 
 app.get('/status', async (req, res) => {
   const balanceLamports = await connection.getBalance(wallet.publicKey);
+  const solBalance = balanceLamports / 1e9;
+  const activity = getScanStats();
+  const solUsd = await getSolUsdPrice();
+
+  const allPositions = getAllPositions();
+  const closed = allPositions.filter((p) => p.status === 'closed');
+  const totalSpentSol = allPositions.reduce((sum, p) => sum + (p.entrySolAmount || 0), 0);
+  const allTimeRealizedPnlSol = closed.reduce((sum, p) => sum + (p.realizedPnlSol || 0), 0);
+
   res.json({
     wallet: wallet.publicKey.toBase58(),
-    solBalance: balanceLamports / 1e9,
+    solBalance,
     todaysRealizedPnlSol: getTodaysPnl(),
+    allTimeRealizedPnlSol,
+    totalSpentSol,
     openPositions: getOpenPositions().length,
     maxConcurrentPositions: config.maxConcurrentPositions,
     maxDailyLossSol: config.maxDailyLossSol,
@@ -35,7 +47,13 @@ app.get('/status', async (req, res) => {
     scanIntervalMs: config.scanIntervalMs,
     lastTickAt: getLastTick(),
     minMarketCapUsd: config.minMarketCapUsd,
-    scanActivity: getScanStats(),
+    model: config.openRouterModel,
+    tickCount: activity.tickCount,
+    startedAt: activity.startedAt,
+    unrealizedPnlUsd: activity.unrealizedPnlUsd,
+    openPositionsValueUsd: activity.openPositionsValueUsd,
+    totalEquityUsd: solBalance * (solUsd || 0) + (activity.openPositionsValueUsd || 0),
+    scanActivity: activity,
   });
 });
 

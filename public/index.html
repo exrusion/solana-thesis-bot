@@ -14,7 +14,10 @@
     <header class="masthead">
       <div class="brand">
         <span class="brand-mark">&#9679;</span>
-        <h1>THESIS.LOG</h1>
+        <div>
+          <h1>THESIS.LOG</h1>
+          <div class="tagline">autonomous trader &middot; pump.fun native &middot; on-chain born</div>
+        </div>
       </div>
       <div class="pulse-strip">
         <div class="pulse-line" id="pulseLine"></div>
@@ -23,52 +26,59 @@
       </div>
     </header>
 
+    <section class="stats-bar" id="statsBar">
+      <div class="stat"><div class="stat-label">model</div><div class="stat-value" id="statModel">&mdash;</div></div>
+      <div class="stat"><div class="stat-label">awake</div><div class="stat-value" id="statUptime">&mdash;</div></div>
+      <div class="stat"><div class="stat-label">mcap floor</div><div class="stat-value" id="statFloor">&mdash;</div></div>
+      <div class="stat"><div class="stat-label">ticks</div><div class="stat-value" id="statTicks">&mdash;</div></div>
+      <div class="stat"><div class="stat-label">total equity</div><div class="stat-value" id="statEquity">&mdash;</div></div>
+      <div class="stat"><div class="stat-label">total spent</div><div class="stat-value" id="statSpent">&mdash;</div></div>
+      <div class="stat"><div class="stat-label">realized p&amp;l</div><div class="stat-value" id="statRealized">&mdash;</div></div>
+      <div class="stat"><div class="stat-label">unrealized p&amp;l</div><div class="stat-value" id="statUnrealized">&mdash;</div></div>
+    </section>
+
     <main class="layout">
-      <aside class="vitals">
-        <div class="vital-block">
+      <aside class="curve-col">
+        <div class="panel-title">the curve</div>
+        <div class="curve-card">
+          <div class="curve-card-head">
+            <span id="curveTopSymbol">&mdash;</span>
+            <span class="badge badge-skip" id="curveStatus">watching</span>
+          </div>
+          <div class="curve-caption" id="curveCaption">no candidates tracked yet</div>
+
+          <div class="curve-bar-label">
+            <span>closest to $10k floor</span><span id="curveBarPct">&mdash;</span>
+          </div>
+          <div class="curve-bar"><div class="curve-bar-fill" id="curveBarFill"></div></div>
+
+          <ul class="curve-list" id="curveList"></ul>
+
+          <div class="curve-footer">
+            <div class="vital-label">last filed</div>
+            <div class="curve-footer-text" id="curveLastFiled">&mdash;</div>
+          </div>
+        </div>
+        <div class="curve-tagline">still watching. still skeptical.</div>
+
+        <div class="curve-card" style="margin-top: 16px;">
           <div class="vital-label">wallet</div>
           <a class="vital-mono" id="walletLink" href="#" target="_blank" rel="noopener">&mdash;</a>
-        </div>
-        <div class="vital-block">
-          <div class="vital-label">sol balance</div>
-          <div class="vital-value" id="solBalance">&mdash;</div>
-        </div>
-        <div class="vital-block">
-          <div class="vital-label">today's realized p&amp;l</div>
-          <div class="vital-value" id="todaysPnl">&mdash;</div>
-        </div>
-        <div class="vital-block">
-          <div class="vital-label">open positions</div>
-          <div class="vital-value" id="openPositions">&mdash;</div>
-        </div>
-        <div class="vital-block">
-          <div class="vital-label">kill switch</div>
-          <div class="vital-value" id="killSwitch">&mdash;</div>
-        </div>
-
-        <div class="vital-rules">
-          <div class="rule-row"><span>max position</span><span id="ruleMaxPos">&mdash;</span></div>
-          <div class="rule-row"><span>stop-loss</span><span id="ruleStopLoss">&mdash;</span></div>
-          <div class="rule-row"><span>daily loss limit</span><span id="ruleDailyLoss">&mdash;</span></div>
-        </div>
-
-        <div class="positions-block">
-          <div class="vital-label">open now</div>
-          <ul id="positionsList" class="positions-list">
+          <div class="rule-row" style="margin-top: 12px;"><span>open positions</span><span id="openPositionsCount">&mdash;</span></div>
+          <div class="rule-row"><span>kill switch</span><span id="killSwitch">&mdash;</span></div>
+          <ul id="positionsList" class="positions-list" style="margin-top: 10px;">
             <li class="empty-note">none open</li>
           </ul>
         </div>
-
-        <div class="positions-block">
-          <div class="vital-label">scanning</div>
-          <div class="rule-row"><span>tracked</span><span id="scanTracked">&mdash;</span></div>
-          <div class="rule-row"><span>closest to $10k</span><span id="scanClosest">&mdash;</span></div>
-          <div class="rule-row"><span>creates seen</span><span id="scanCreates">&mdash;</span></div>
-          <div class="rule-row"><span>trades sampled</span><span id="scanTrades">&mdash;</span></div>
-        </div>
       </aside>
 
-      <section class="journal">
+      <section class="feed-col">
+        <div class="now-block">
+          <div class="panel-title">now</div>
+          <div class="now-text" id="nowText">the bot is watching.</div>
+        </div>
+
+        <div class="panel-title" style="margin: 22px 0 12px;">its own theses</div>
         <div class="empty-note journal-empty" id="journalEmpty">No entries yet. The bot is watching.</div>
         <ol class="journal-list" id="journalList"></ol>
 

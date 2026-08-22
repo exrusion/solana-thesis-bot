@@ -8,7 +8,7 @@ import { generateThesis } from './thesisEngine.js';
 import { buyToken, sellToken } from './jupiter.js';
 import { startPumpFunListener, drainFreshMints, getListenerStats } from './pumpfunListener.js';
 import { recordEvaluation, processDueCheckpoints } from './outcomeTracker.js';
-import { updateScanStats } from './scanStats.js';
+import { updateScanStats, incrementTickCount } from './scanStats.js';
 import {
   getOpenPositions,
   openPosition,
@@ -66,8 +66,14 @@ function buildBondingCurveCandidate(mintAddress, curve, solUsd, firstSeenAt, gro
 
 async function manageOpenPositions() {
   const open = getOpenPositions();
-  if (!open.length) return;
+  if (!open.length) {
+    updateScanStats({ unrealizedPnlUsd: 0, openPositionsValueUsd: 0 });
+    return;
+  }
   const solUsd = await getSolUsdPrice();
+
+  let unrealizedPnlUsd = 0;
+  let openPositionsValueUsd = 0;
 
   for (const pos of open) {
     let currentPriceUsd = null;
@@ -86,6 +92,11 @@ async function manageOpenPositions() {
     }
 
     if (currentPriceUsd === null) continue; // no fresh price this tick — try again next tick
+
+    const entryValueUsd = pos.entryPriceUsd > 0 ? pos.entrySolAmount * (solUsd || 0) : 0;
+    const currentValueUsd = pos.entryPriceUsd > 0 ? (currentPriceUsd / pos.entryPriceUsd) * entryValueUsd : 0;
+    unrealizedPnlUsd += currentValueUsd - entryValueUsd;
+    openPositionsValueUsd += currentValueUsd;
 
     const pnlPercent = ((currentPriceUsd - pos.entryPriceUsd) / pos.entryPriceUsd) * 100;
 
@@ -107,6 +118,8 @@ async function manageOpenPositions() {
       }
     }
   }
+
+  updateScanStats({ unrealizedPnlUsd, openPositionsValueUsd });
 }
 
 async function scanForNewPositions() {
@@ -205,22 +218,24 @@ async function scanForNewPositions() {
     `[pumpfun] logs seen: ${listenerStats.logsSeen} | creates: ${listenerStats.createLogsSeen} | trades sampled: ${listenerStats.tradeLogsSeen} | resolved: ${listenerStats.resolvedTotal} | resolve failures: ${listenerStats.resolveFailures} | suspicious (no "pump" suffix): ${listenerStats.suspiciousMints} | pending: ${listenerStats.pendingCount}`
   );
 
-  let closestSymbol = null;
-  let closestMarketCapUsd = 0;
+  let topPending = [];
   if (solUsd) {
+    const withMc = [];
     for (const entry of pendingFreshMints) {
       if (entry.lastRealSolReservesSol == null) continue;
-      const mc = entry.lastRealSolReservesSol * solUsd;
-      if (mc > closestMarketCapUsd) {
-        closestMarketCapUsd = mc;
-        closestSymbol = `${entry.mintAddress.slice(0, 4)}…${entry.mintAddress.slice(-4)}`;
-      }
+      withMc.push({
+        symbol: `${entry.mintAddress.slice(0, 4)}…${entry.mintAddress.slice(-4)}`,
+        marketCapUsd: entry.lastRealSolReservesSol * solUsd,
+      });
     }
+    withMc.sort((a, b) => b.marketCapUsd - a.marketCapUsd);
+    topPending = withMc.slice(0, 3);
   }
   updateScanStats({
     pendingMintsCount: pendingFreshMints.length,
-    closestPendingSymbol: closestSymbol,
-    closestPendingMarketCapUsd: closestMarketCapUsd,
+    closestPendingSymbol: topPending[0]?.symbol || null,
+    closestPendingMarketCapUsd: topPending[0]?.marketCapUsd || 0,
+    topPending,
     totalResolved: totalFreshResolved,
     totalGivenUp: totalFreshGivenUp,
     createsSeen: listenerStats.createLogsSeen,
@@ -331,6 +346,7 @@ async function tick() {
   tickInProgress = true;
   console.log(`\n--- tick ${new Date().toISOString()} ---`);
   setLastTick();
+  incrementTickCount();
   try {
     await manageOpenPositions();
     await scanForNewPositions();

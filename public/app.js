@@ -18,9 +18,26 @@ function fmtUsd(n) {
   return `$${Math.round(n).toLocaleString()}`;
 }
 
+function fmtUsdSigned(n) {
+  if (n === undefined || n === null) return '—';
+  const sign = n > 0 ? '+' : n < 0 ? '-' : '';
+  return `${sign}$${Math.abs(Math.round(n)).toLocaleString()}`;
+}
+
 function fmtTime(iso) {
   if (!iso) return '—';
   return new Date(iso).toISOString().slice(11, 19) + 'Z';
+}
+
+function fmtDuration(startIso) {
+  if (!startIso) return '—';
+  const mins = Math.floor((Date.now() - new Date(startIso).getTime()) / 60000);
+  const days = Math.floor(mins / 1440);
+  const hours = Math.floor((mins % 1440) / 60);
+  const minutes = mins % 60;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${Math.max(minutes, 0)}m`;
 }
 
 function escapeHtml(str) {
@@ -37,6 +54,7 @@ async function fetchJson(path) {
 
 let lastTickAt = null;
 let scanIntervalMs = 60000;
+let latestJournalEntry = null;
 
 async function refreshStatus() {
   try {
@@ -48,40 +66,72 @@ async function refreshStatus() {
     walletLink.textContent = shortAddr(status.wallet);
     walletLink.href = `https://solscan.io/account/${status.wallet}`;
 
-    el('solBalance').textContent =
-      status.solBalance !== undefined ? `${status.solBalance.toFixed(3)} SOL` : '—';
+    el('openPositionsCount').textContent = `${status.openPositions} / ${status.maxConcurrentPositions}`;
 
-    const pnl = status.todaysRealizedPnlSol || 0;
-    const pnlEl = el('todaysPnl');
-    pnlEl.textContent = fmtSol(pnl);
-    pnlEl.style.color = pnl > 0 ? 'var(--hold)' : pnl < 0 ? 'var(--fail)' : 'var(--fg)';
-
-    el('openPositions').textContent = `${status.openPositions} / ${status.maxConcurrentPositions}`;
-
-    const tripped = pnl <= -(status.maxDailyLossSol ?? Infinity);
+    const todaysPnl = status.todaysRealizedPnlSol || 0;
+    const tripped = todaysPnl <= -(status.maxDailyLossSol ?? Infinity);
     const killEl = el('killSwitch');
     killEl.textContent = tripped ? 'TRIPPED' : 'ARMED';
     killEl.style.color = tripped ? 'var(--fail)' : 'var(--hold)';
 
-    el('ruleMaxPos').textContent = `${status.maxPositionSizeSol} SOL`;
-    el('ruleStopLoss').textContent = `${status.stopLossPercent}%`;
-    el('ruleDailyLoss').textContent = `${status.maxDailyLossSol} SOL`;
+    // Stats bar
+    el('statModel').textContent = status.model || '—';
+    el('statUptime').textContent = fmtDuration(status.startedAt);
+    el('statFloor').textContent = fmtUsd(status.minMarketCapUsd);
+    el('statTicks').textContent = status.tickCount ?? '—';
+    el('statEquity').textContent = fmtUsd(status.totalEquityUsd);
+    el('statSpent').textContent =
+      status.totalSpentSol !== undefined ? `${status.totalSpentSol.toFixed(3)} SOL` : '—';
 
+    const realizedEl = el('statRealized');
+    const realized = status.allTimeRealizedPnlSol || 0;
+    realizedEl.textContent = fmtSol(realized);
+    realizedEl.style.color = realized > 0 ? 'var(--hold)' : realized < 0 ? 'var(--fail)' : 'var(--fg)';
+
+    const unrealizedEl = el('statUnrealized');
+    const unrealized = status.unrealizedPnlUsd || 0;
+    unrealizedEl.textContent = fmtUsdSigned(unrealized);
+    unrealizedEl.style.color = unrealized > 0 ? 'var(--hold)' : unrealized < 0 ? 'var(--fail)' : 'var(--fg)';
+
+    // The Curve panel
     const activity = status.scanActivity || {};
-    el('scanTracked').textContent = activity.pendingMintsCount ?? '—';
-    el('scanClosest').textContent = activity.closestPendingSymbol
-      ? `$${Math.round(activity.closestPendingMarketCapUsd).toLocaleString()} (${activity.closestPendingSymbol})`
-      : '—';
-    el('scanCreates').textContent = activity.createsSeen ?? '—';
-    el('scanTrades').textContent = activity.tradesSeen ?? '—';
+    const minMc = status.minMarketCapUsd || 10000;
 
-    const minMc = status.minMarketCapUsd;
-    const empty = el('journalEmpty');
-    if (empty) {
-      empty.innerHTML =
-        activity.pendingMintsCount > 0
-          ? `Tracking ${activity.pendingMintsCount} token${activity.pendingMintsCount === 1 ? '' : 's'} — none have crossed the $${minMc?.toLocaleString() ?? '10,000'} market cap floor yet. Closest: ${activity.closestPendingSymbol ? `$${Math.round(activity.closestPendingMarketCapUsd).toLocaleString()}` : 'warming up'}.`
-          : 'No entries yet. The bot is watching.';
+    el('curveTopSymbol').textContent = activity.closestPendingSymbol || 'watching';
+    el('curveStatus').textContent = activity.pendingMintsCount > 0 ? 'tracking' : 'idle';
+    el('curveCaption').textContent =
+      activity.pendingMintsCount > 0
+        ? `${activity.pendingMintsCount} token${activity.pendingMintsCount === 1 ? '' : 's'} being watched right now`
+        : 'no candidates tracked yet';
+
+    const pct = Math.min(100, ((activity.closestPendingMarketCapUsd || 0) / minMc) * 100);
+    el('curveBarPct').textContent = `${fmtUsd(activity.closestPendingMarketCapUsd)} / ${fmtUsd(minMc)}`;
+    el('curveBarFill').style.width = `${pct}%`;
+
+    const curveList = el('curveList');
+    const top = activity.topPending || [];
+    curveList.innerHTML = top.length
+      ? top.map((t) => `<li><span>${escapeHtml(t.symbol)}</span><span>${fmtUsd(t.marketCapUsd)}</span></li>`).join('')
+      : '<li class="empty-note">nothing above the floor yet</li>';
+
+    const lastFiled = el('curveLastFiled');
+    if (latestJournalEntry) {
+      const snippet =
+        latestJournalEntry.type === 'thesis'
+          ? latestJournalEntry.thesis?.reasoning?.[0]
+          : (latestJournalEntry.reasons || [])[0];
+      lastFiled.textContent = `$${latestJournalEntry.symbol} — ${snippet || '—'}`;
+    } else {
+      lastFiled.textContent = 'nothing filed yet';
+    }
+
+    const nowText = el('nowText');
+    if (latestJournalEntry) {
+      const snippet =
+        latestJournalEntry.type === 'thesis'
+          ? latestJournalEntry.thesis?.reasoning?.[0]
+          : (latestJournalEntry.reasons || [])[0];
+      nowText.textContent = snippet || 'the bot is watching.';
     }
   } catch (err) {
     console.error('status refresh failed', err);
@@ -124,9 +174,9 @@ function renderEntry(entry) {
 
   const statsRow = entry.stats
     ? `<div class="entry-stats">
+        <span>mcap ${fmtUsd(entry.stats.marketCapUsd)}</span>
         <span>liq ${fmtUsd(entry.stats.liquidityUsd)}</span>
-        <span>1h vol ${fmtUsd(entry.stats.volume1h)}</span>
-        <span>1h &#916; ${entry.stats.priceChange1h?.toFixed(1)}%</span>
+        <span>growth ${entry.stats.priceChange1h?.toFixed(1)}%</span>
       </div>`
     : '';
 
@@ -164,6 +214,8 @@ function renderEntry(entry) {
 async function refreshJournal() {
   try {
     const log = await fetchJson('/thesis-log?limit=50');
+    latestJournalEntry = log[0] || null;
+
     const list = el('journalList');
     const empty = el('journalEmpty');
     list.innerHTML = '';
@@ -217,7 +269,8 @@ async function refreshLogs() {
 }
 
 async function refreshAll() {
-  await Promise.all([refreshStatus(), refreshPositions(), refreshJournal(), refreshLogs()]);
+  await refreshJournal(); // populate latestJournalEntry before status renders "now"/"last filed"
+  await Promise.all([refreshStatus(), refreshPositions(), refreshLogs()]);
 }
 
 buildPulseBars();
