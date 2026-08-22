@@ -31,16 +31,23 @@ export async function fetchTokenMetadata(mintAddress) {
     const mint = new PublicKey(mintAddress);
     const pda = findMetadataAddress(mint);
     const accountInfo = await connection.getAccountInfo(pda);
-    if (!accountInfo) return null;
+    if (!accountInfo) {
+      console.error(`[tokenMetadata] no metadata account found for ${mintAddress} at PDA ${pda.toBase58()}`);
+      return null;
+    }
 
     const data = accountInfo.data;
     let offset = 1 + 32 + 32; // key(1) + updateAuthority(32) + mint(32)
     const name = readBorshString(data, offset);
     const symbol = readBorshString(data, name.nextOffset);
 
-    if (!name.value && !symbol.value) return null;
+    if (!name.value && !symbol.value) {
+      console.error(`[tokenMetadata] parsed empty name/symbol for ${mintAddress} — account size ${data.length} bytes`);
+      return null;
+    }
     return { name: name.value, symbol: symbol.value };
   } catch (err) {
+    console.error(`[tokenMetadata] failed for ${mintAddress}: ${err.message}`);
     return null;
   }
 }
