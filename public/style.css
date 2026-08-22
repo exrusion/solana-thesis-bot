@@ -304,6 +304,34 @@ html, body {
 
 .entry-link:hover { text-decoration: underline; }
 
+/* System logs panel */
+.logs-box {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  max-height: 320px;
+  overflow-y: auto;
+  font-family: var(--font-utility);
+  font-size: 0.72rem;
+  line-height: 1.6;
+}
+
+.log-line {
+  display: flex;
+  gap: 10px;
+  color: var(--fg);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.log-line-error { color: var(--fail); }
+
+.log-time {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pulse-line span, .live-dot { animation: none; }
 }

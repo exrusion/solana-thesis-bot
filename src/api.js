@@ -12,6 +12,8 @@ import {
 } from './positions.js';
 import { connection, wallet } from './rpc.js';
 import { getOutcomes } from './outcomeTracker.js';
+import { getScanStats } from './scanStats.js';
+import { getRecentLogs } from './logCapture.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -32,6 +34,8 @@ app.get('/status', async (req, res) => {
     stopLossPercent: config.stopLossPercent,
     scanIntervalMs: config.scanIntervalMs,
     lastTickAt: getLastTick(),
+    minMarketCapUsd: config.minMarketCapUsd,
+    scanActivity: getScanStats(),
   });
 });
 
@@ -47,6 +51,11 @@ app.get('/thesis-log', (req, res) => {
 app.get('/outcomes', (req, res) => {
   const limit = parseInt(req.query.limit, 10) || 100;
   res.json(getOutcomes(limit));
+});
+
+app.get('/logs', (req, res) => {
+  const limit = parseInt(req.query.limit, 10) || 150;
+  res.json(getRecentLogs(limit));
 });
 
 app.listen(config.port, () => {

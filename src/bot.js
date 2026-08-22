@@ -1,3 +1,4 @@
+import './logCapture.js'; // must be first — captures every console.log/error from here on
 import './api.js'; // runs the API + serves the frontend in this same process
 import { config } from './config.js';
 import { getPairsForMint } from './dexscreener.js';
@@ -7,6 +8,7 @@ import { generateThesis } from './thesisEngine.js';
 import { buyToken, sellToken } from './jupiter.js';
 import { startPumpFunListener, drainFreshMints, getListenerStats } from './pumpfunListener.js';
 import { recordEvaluation, processDueCheckpoints } from './outcomeTracker.js';
+import { updateScanStats } from './scanStats.js';
 import {
   getOpenPositions,
   openPosition,
@@ -198,10 +200,32 @@ async function scanForNewPositions() {
   console.log(
     `[fresh-mints] pending: ${pendingFreshMints.length} | resolved (session total): ${totalFreshResolved} | given up (session total): ${totalFreshGivenUp}`
   );
-  const stats = getListenerStats();
+  const listenerStats = getListenerStats();
   console.log(
-    `[pumpfun] logs seen: ${stats.logsSeen} | creates seen: ${stats.createLogsSeen} | resolved: ${stats.resolvedTotal} | resolve failures: ${stats.resolveFailures} | suspicious (no "pump" suffix): ${stats.suspiciousMints} | pending: ${stats.pendingCount}`
+    `[pumpfun] logs seen: ${listenerStats.logsSeen} | creates: ${listenerStats.createLogsSeen} | trades sampled: ${listenerStats.tradeLogsSeen} | resolved: ${listenerStats.resolvedTotal} | resolve failures: ${listenerStats.resolveFailures} | suspicious (no "pump" suffix): ${listenerStats.suspiciousMints} | pending: ${listenerStats.pendingCount}`
   );
+
+  let closestSymbol = null;
+  let closestMarketCapUsd = 0;
+  if (solUsd) {
+    for (const entry of pendingFreshMints) {
+      if (entry.lastRealSolReservesSol == null) continue;
+      const mc = entry.lastRealSolReservesSol * solUsd;
+      if (mc > closestMarketCapUsd) {
+        closestMarketCapUsd = mc;
+        closestSymbol = `${entry.mintAddress.slice(0, 4)}…${entry.mintAddress.slice(-4)}`;
+      }
+    }
+  }
+  updateScanStats({
+    pendingMintsCount: pendingFreshMints.length,
+    closestPendingSymbol: closestSymbol,
+    closestPendingMarketCapUsd: closestMarketCapUsd,
+    totalResolved: totalFreshResolved,
+    totalGivenUp: totalFreshGivenUp,
+    createsSeen: listenerStats.createLogsSeen,
+    tradesSeen: listenerStats.tradeLogsSeen,
+  });
 
   let passedCount = 0;
 

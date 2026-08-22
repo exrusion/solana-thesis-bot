@@ -58,11 +58,22 @@
             <li class="empty-note">none open</li>
           </ul>
         </div>
+
+        <div class="positions-block">
+          <div class="vital-label">scanning</div>
+          <div class="rule-row"><span>tracked</span><span id="scanTracked">&mdash;</span></div>
+          <div class="rule-row"><span>closest to $10k</span><span id="scanClosest">&mdash;</span></div>
+          <div class="rule-row"><span>creates seen</span><span id="scanCreates">&mdash;</span></div>
+          <div class="rule-row"><span>trades sampled</span><span id="scanTrades">&mdash;</span></div>
+        </div>
       </aside>
 
       <section class="journal">
         <div class="empty-note journal-empty" id="journalEmpty">No entries yet. The bot is watching.</div>
         <ol class="journal-list" id="journalList"></ol>
+
+        <div class="vital-label" style="margin: 28px 0 10px;">system logs</div>
+        <div class="logs-box" id="logsBox"></div>
       </section>
     </main>
   </div>

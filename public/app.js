@@ -66,6 +66,23 @@ async function refreshStatus() {
     el('ruleMaxPos').textContent = `${status.maxPositionSizeSol} SOL`;
     el('ruleStopLoss').textContent = `${status.stopLossPercent}%`;
     el('ruleDailyLoss').textContent = `${status.maxDailyLossSol} SOL`;
+
+    const activity = status.scanActivity || {};
+    el('scanTracked').textContent = activity.pendingMintsCount ?? '—';
+    el('scanClosest').textContent = activity.closestPendingSymbol
+      ? `$${Math.round(activity.closestPendingMarketCapUsd).toLocaleString()} (${activity.closestPendingSymbol})`
+      : '—';
+    el('scanCreates').textContent = activity.createsSeen ?? '—';
+    el('scanTrades').textContent = activity.tradesSeen ?? '—';
+
+    const minMc = status.minMarketCapUsd;
+    const empty = el('journalEmpty');
+    if (empty) {
+      empty.innerHTML =
+        activity.pendingMintsCount > 0
+          ? `Tracking ${activity.pendingMintsCount} token${activity.pendingMintsCount === 1 ? '' : 's'} — none have crossed the $${minMc?.toLocaleString() ?? '10,000'} market cap floor yet. Closest: ${activity.closestPendingSymbol ? `$${Math.round(activity.closestPendingMarketCapUsd).toLocaleString()}` : 'warming up'}.`
+          : 'No entries yet. The bot is watching.';
+    }
   } catch (err) {
     console.error('status refresh failed', err);
   }
@@ -184,8 +201,23 @@ function buildPulseBars() {
   }
 }
 
+async function refreshLogs() {
+  try {
+    const logs = await fetchJson('/logs?limit=150');
+    const box = el('logsBox');
+    box.innerHTML = logs
+      .map((l) => {
+        const cls = l.level === 'error' ? 'log-line log-line-error' : 'log-line';
+        return `<div class="${cls}"><span class="log-time">${fmtTime(l.timestamp)}</span><span>${escapeHtml(l.line)}</span></div>`;
+      })
+      .join('');
+  } catch (err) {
+    console.error('logs refresh failed', err);
+  }
+}
+
 async function refreshAll() {
-  await Promise.all([refreshStatus(), refreshPositions(), refreshJournal()]);
+  await Promise.all([refreshStatus(), refreshPositions(), refreshJournal(), refreshLogs()]);
 }
 
 buildPulseBars();
