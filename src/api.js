@@ -11,6 +11,7 @@ import {
   getLastTick,
 } from './positions.js';
 import { connection, wallet } from './rpc.js';
+import { getOutcomes } from './outcomeTracker.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -41,6 +42,11 @@ app.get('/positions', (req, res) => {
 app.get('/thesis-log', (req, res) => {
   const limit = parseInt(req.query.limit, 10) || 50;
   res.json(getThesisLog(limit));
+});
+
+app.get('/outcomes', (req, res) => {
+  const limit = parseInt(req.query.limit, 10) || 100;
+  res.json(getOutcomes(limit));
 });
 
 app.listen(config.port, () => {

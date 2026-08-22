@@ -1,4 +1,5 @@
 import { checkMintSafety, checkHolderConcentration } from './rpc.js';
+import { getRugCheckReport } from './rugcheck.js';
 import { config } from './config.js';
 
 /**
@@ -41,6 +42,23 @@ export async function passesSafetyFilters(pair) {
   const holderSafety = await checkHolderConcentration(pair.mintAddress);
   if (!holderSafety.safe) {
     reasons.push(holderSafety.reason);
+  }
+
+  // RugCheck's ML-based scoring — a much broader signal set than our own
+  // basic checks (LP locks, sniper/bundler wallets, metadata mutability,
+  // insider concentration, and more). A failed lookup is treated as
+  // "unknown," not "unsafe" — a third-party outage shouldn't halt trading.
+  const rugCheck = await getRugCheckReport(pair.mintAddress);
+  if (rugCheck) {
+    if (rugCheck.rugged) {
+      reasons.push('RugCheck flags this token as already rugged');
+    }
+    if (rugCheck.dangerRisks.length > 0) {
+      reasons.push(`RugCheck danger flags: ${rugCheck.dangerRisks.join(', ')}`);
+    }
+    if (rugCheck.score !== null && rugCheck.score >= config.maxRugcheckScore) {
+      reasons.push(`RugCheck risk score ${rugCheck.score} at/above maximum ${config.maxRugcheckScore}`);
+    }
   }
 
   return { passed: reasons.length === 0, reasons };

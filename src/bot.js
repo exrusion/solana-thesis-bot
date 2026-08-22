@@ -6,6 +6,7 @@ import { passesSafetyFilters } from './safetyFilters.js';
 import { generateThesis } from './thesisEngine.js';
 import { buyToken, sellToken } from './jupiter.js';
 import { startPumpFunListener, drainFreshMints, getListenerStats } from './pumpfunListener.js';
+import { recordEvaluation, processDueCheckpoints } from './outcomeTracker.js';
 import {
   getOpenPositions,
   openPosition,
@@ -219,6 +220,19 @@ async function scanForNewPositions() {
         url: pair.url,
         reasons: filterResult.reasons,
       });
+      recordEvaluation({
+        mintAddress: pair.mintAddress,
+        symbol: pair.symbol,
+        decision: 'filtered',
+        entrySnapshot: {
+          marketCapUsd: pair.marketCapUsd,
+          liquidityUsd: pair.liquidityUsd,
+          volume1h: pair.volume1h,
+          priceChange1h: pair.priceChange1h,
+          priceUsd: pair.priceUsd,
+        },
+        filterReasons: filterResult.reasons,
+      });
       continue;
     }
     passedCount++;
@@ -244,6 +258,19 @@ async function scanForNewPositions() {
       url: pair.url,
       stats,
       thesis,
+    });
+    recordEvaluation({
+      mintAddress: pair.mintAddress,
+      symbol: pair.symbol,
+      decision: thesis.decision,
+      entrySnapshot: {
+        marketCapUsd: pair.marketCapUsd,
+        liquidityUsd: pair.liquidityUsd,
+        volume1h: pair.volume1h,
+        priceChange1h: pair.priceChange1h,
+        priceUsd: pair.priceUsd,
+      },
+      thesisReasoning: thesis.reasoning,
     });
     console.log(`[thesis] ${pair.symbol} — ${thesis.decision}`);
 
@@ -283,6 +310,12 @@ async function tick() {
   try {
     await manageOpenPositions();
     await scanForNewPositions();
+    const outcomeResult = await processDueCheckpoints();
+    if (outcomeResult.checked > 0 || outcomeResult.pending > 0) {
+      console.log(
+        `[outcomes] checked ${outcomeResult.checked} follow-up(s) this tick, ${outcomeResult.pending} still due`
+      );
+    }
   } catch (err) {
     console.error(`[tick] unhandled error: ${err.message}`);
   } finally {
