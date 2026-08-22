@@ -1,6 +1,7 @@
 import './api.js'; // runs the API + serves the frontend in this same process
 import { config } from './config.js';
-import { getCandidatePairs, getPairData, getPairsForMint } from './dexscreener.js';
+import { getPairsForMint } from './dexscreener.js';
+import { fetchBondingCurveState, getSolUsdPrice } from './bondingCurve.js';
 import { passesSafetyFilters } from './safetyFilters.js';
 import { generateThesis } from './thesisEngine.js';
 import { buyToken, sellToken } from './jupiter.js';
@@ -15,30 +16,69 @@ import {
   setLastTick,
 } from './positions.js';
 
-const MAX_PENDING_FRESH_MINTS = 300;
+const MAX_PENDING_FRESH_MINTS = 500;
 const MAX_LOOKUPS_PER_TICK = 25;
-const FRESH_MINT_EXPIRY_MS = 10 * 60 * 1000; // give up if DexScreener never indexes it within 10 min
+const FRESH_MINT_EXPIRY_MS = 30 * 60 * 1000; // most pump.fun creates never trade at all — give real ones time
 
-let pendingFreshMints = []; // { mintAddress, firstSeenAt } — persists across ticks
+let pendingFreshMints = []; // { mintAddress, firstSeenAt, lastRealSolReservesSol } — persists across ticks
+let totalFreshResolved = 0;
+let totalFreshGivenUp = 0;
 
 function killSwitchTripped() {
   return getTodaysPnl() <= -config.maxDailyLossSol;
 }
 
+/** Builds a pipeline-compatible candidate from on-chain bonding-curve reserves, with real momentum since we first saw it. */
+function buildBondingCurveCandidate(mintAddress, curve, solUsd, firstSeenAt, growthPercent) {
+  const liquidityUsd = curve.realSolReservesSol * solUsd;
+  return {
+    pairAddress: mintAddress, // no real DexScreener pair yet — position tracking uses mintAddress, not this
+    dexId: 'pumpfun',
+    mintAddress,
+    symbol: `${mintAddress.slice(0, 4)}…${mintAddress.slice(-4)}`,
+    priceUsd: curve.priceSolPerToken * solUsd,
+    liquidityUsd,
+    // Proxy, not true gross volume: the bonding curve gives reserves, not
+    // trade history. Real SOL committed to the curve is a reasonable
+    // stand-in for "how much genuine buying interest this has attracted."
+    volume1h: liquidityUsd,
+    volume6h: liquidityUsd,
+    volume24h: liquidityUsd,
+    // This is real growth in the curve's real SOL reserves since we first
+    // detected the token (could be a few minutes to ~30min old) — our own
+    // "is this actually moving" signal, not a literal 1h/6h/24h window.
+    priceChange1h: growthPercent,
+    priceChange6h: growthPercent,
+    priceChange24h: growthPercent,
+    pairCreatedAt: firstSeenAt,
+    url: `https://pump.fun/${mintAddress}`,
+  };
+}
+
 async function manageOpenPositions() {
   const open = getOpenPositions();
+  if (!open.length) return;
+  const solUsd = await getSolUsdPrice();
 
   for (const pos of open) {
-    let fresh;
+    let currentPriceUsd = null;
+
     try {
-      fresh = await getPairData(pos.pairAddress);
+      const curve = await fetchBondingCurveState(pos.mintAddress);
+      if (curve && !curve.complete && solUsd) {
+        currentPriceUsd = curve.priceSolPerToken * solUsd;
+      } else {
+        const pair = await getPairsForMint(pos.mintAddress);
+        if (pair) currentPriceUsd = pair.priceUsd;
+      }
     } catch (err) {
       console.error(`[manage] failed to refresh ${pos.symbol}: ${err.message}`);
       continue;
     }
-    if (!fresh) continue;
 
-    const pnlPercent = ((fresh.priceUsd - pos.entryPriceUsd) / pos.entryPriceUsd) * 100;
+    if (currentPriceUsd === null) continue; // no fresh price this tick — try again next tick
+
+    const pnlPercent = ((currentPriceUsd - pos.entryPriceUsd) / pos.entryPriceUsd) * 100;
 
     if (pnlPercent <= -config.stopLossPercent) {
       console.log(`[exit] ${pos.symbol} hit stop-loss at ${pnlPercent.toFixed(1)}% — selling`);
@@ -48,7 +88,7 @@ async function manageOpenPositions() {
         const realizedPnlSol = exitSol - pos.entrySolAmount;
 
         closePosition(pos.mintAddress, {
-          exitPriceUsd: fresh.priceUsd,
+          exitPriceUsd: currentPriceUsd,
           exitSignature: result.signature,
           realizedPnlSol,
         });
@@ -82,38 +122,73 @@ async function scanForNewPositions() {
     }
   }
 
-  // drop anything DexScreener never indexed within the expiry window
+  // drop anything that never got any data within the expiry window
   const now = Date.now();
+  const beforeExpiry = pendingFreshMints.length;
   pendingFreshMints = pendingFreshMints.filter((m) => now - m.firstSeenAt < FRESH_MINT_EXPIRY_MS);
+  totalFreshGivenUp += beforeExpiry - pendingFreshMints.length;
   if (pendingFreshMints.length > MAX_PENDING_FRESH_MINTS) {
+    const overflow = pendingFreshMints.length - MAX_PENDING_FRESH_MINTS;
+    totalFreshGivenUp += overflow;
     pendingFreshMints = pendingFreshMints.slice(-MAX_PENDING_FRESH_MINTS);
   }
 
-  // check the oldest-pending ones first — they've had the most time to get indexed
+  const solUsd = await getSolUsdPrice();
   const toCheck = pendingFreshMints.slice(0, MAX_LOOKUPS_PER_TICK);
-  const stillUnresolved = [];
+  const stillPending = [];
   const freshCandidates = [];
+
   for (const entry of toCheck) {
     if (openMints.has(entry.mintAddress)) continue; // already holding it
+
+    // bonding curve first — instant, zero indexing lag. DexScreener only as
+    // a fallback for tokens that have already graduated off the curve.
+    const curve = await fetchBondingCurveState(entry.mintAddress);
+
+    if (curve && !curve.complete && solUsd) {
+      const previous = entry.lastRealSolReservesSol;
+      const growthPercent =
+        previous && previous > 0
+          ? ((curve.realSolReservesSol - previous) / previous) * 100
+          : 0;
+      entry.lastRealSolReservesSol = curve.realSolReservesSol;
+
+      const liquidityUsd = curve.realSolReservesSol * solUsd;
+      const closeToExpiry = now - entry.firstSeenAt > FRESH_MINT_EXPIRY_MS - config.scanIntervalMs;
+
+      if (liquidityUsd >= config.minLiquidityUsd || closeToExpiry) {
+        // worth a real verdict now — either it's grown enough to plausibly
+        // pass, or this is its last chance before we give up on it
+        freshCandidates.push(
+          buildBondingCurveCandidate(entry.mintAddress, curve, solUsd, entry.firstSeenAt, growthPercent)
+        );
+        totalFreshResolved++;
+      } else {
+        stillPending.push(entry); // still too small — keep quietly tracking its growth
+      }
+      continue;
+    }
+
+    // graduated off the curve, or bonding curve unreadable — try DexScreener by mint
     const pair = await getPairsForMint(entry.mintAddress);
     if (pair) {
       freshCandidates.push(pair);
+      totalFreshResolved++;
     } else {
-      stillUnresolved.push(entry);
+      stillPending.push(entry);
     }
   }
-  pendingFreshMints = [...stillUnresolved, ...pendingFreshMints.slice(MAX_LOOKUPS_PER_TICK)];
-
-  const boostCandidates = await getCandidatePairs();
+  pendingFreshMints = [...stillPending, ...pendingFreshMints.slice(MAX_LOOKUPS_PER_TICK)];
 
   const candidateMap = new Map();
-  for (const pair of [...freshCandidates, ...boostCandidates]) {
+  for (const pair of freshCandidates) {
     if (pair.mintAddress) candidateMap.set(pair.mintAddress, pair);
   }
   const candidates = [...candidateMap.values()];
 
+  console.log(`[scan] ${candidates.length} candidates ready for evaluation this tick`);
   console.log(
-    `[scan] ${freshCandidates.length} fresh on-chain + ${boostCandidates.length} boosted = ${candidates.length} unique candidates (${pendingFreshMints.length} fresh mints still awaiting DexScreener indexing)`
+    `[fresh-mints] pending: ${pendingFreshMints.length} | resolved (session total): ${totalFreshResolved} | given up (session total): ${totalFreshGivenUp}`
   );
   const stats = getListenerStats();
   console.log(

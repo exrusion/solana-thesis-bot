@@ -3,8 +3,12 @@ import { VersionedTransaction } from '@solana/web3.js';
 import { connection, wallet } from './rpc.js';
 
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
-const QUOTE_URL = 'https://quote-api.jup.ag/v6/quote';
-const SWAP_URL = 'https://quote-api.jup.ag/v6/swap';
+// lite-api.jup.ag is Jupiter's current keyless endpoint, fine for a
+// personal-scale bot. quote-api.jup.ag/v6 (the old endpoint) was retired.
+// For higher rate limits later: get a key at portal.jup.ag and switch to
+// https://api.jup.ag/swap/v1 with an `x-api-key` header.
+const QUOTE_URL = 'https://lite-api.jup.ag/swap/v1/quote';
+const SWAP_URL = 'https://lite-api.jup.ag/swap/v1/swap';
 
 /**
  * Executes a swap from SOL into the target token (a "buy").
