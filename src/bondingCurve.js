@@ -62,6 +62,8 @@ export async function fetchBondingCurveState(mintAddress) {
   }
 }
 
+const SOL_MINT_ADDRESS = 'So11111111111111111111111111111111111111112';
+
 let cachedSolUsd = null;
 let cachedAt = 0;
 const SOL_PRICE_CACHE_MS = 5 * 60 * 1000;
@@ -71,14 +73,18 @@ export async function getSolUsdPrice() {
   const now = Date.now();
   if (cachedSolUsd && now - cachedAt < SOL_PRICE_CACHE_MS) return cachedSolUsd;
   try {
-    const res = await axios.get('https://lite-api.jup.ag/price/v3', { params: { ids: 'SOL' } });
-    const price = res.data?.SOL?.usdPrice ?? res.data?.data?.SOL?.price;
+    const res = await axios.get('https://lite-api.jup.ag/price/v3', {
+      params: { ids: SOL_MINT_ADDRESS },
+    });
+    const price = res.data?.[SOL_MINT_ADDRESS]?.usdPrice;
     if (price) {
       cachedSolUsd = price;
       cachedAt = now;
+    } else {
+      console.error('[bondingCurve] SOL price response missing expected field:', JSON.stringify(res.data));
     }
   } catch (err) {
-    // keep previous cached value (if any) on failure
+    console.error(`[bondingCurve] SOL price fetch failed: ${err.message}`);
   }
   return cachedSolUsd;
 }

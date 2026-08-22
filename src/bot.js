@@ -140,6 +140,9 @@ async function scanForNewPositions() {
   }
 
   const solUsd = await getSolUsdPrice();
+  if (!solUsd) {
+    console.error('[scan] WARNING: SOL/USD price unavailable — bonding-curve candidates will fall through to the ungated DexScreener path this tick');
+  }
   const toCheck = pendingFreshMints.slice(0, MAX_LOOKUPS_PER_TICK);
   const stillPending = [];
   const freshCandidates = [];
