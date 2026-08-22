@@ -4,7 +4,7 @@ import { getCandidatePairs, getPairData, getPairsForMint } from './dexscreener.j
 import { passesSafetyFilters } from './safetyFilters.js';
 import { generateThesis } from './thesisEngine.js';
 import { buyToken, sellToken } from './jupiter.js';
-import { startPumpFunListener, drainFreshMints } from './pumpfunListener.js';
+import { startPumpFunListener, drainFreshMints, getListenerStats } from './pumpfunListener.js';
 import {
   getOpenPositions,
   openPosition,
@@ -85,6 +85,10 @@ async function scanForNewPositions() {
 
   console.log(
     `[scan] ${freshCandidates.length} fresh on-chain + ${boostCandidates.length} boosted = ${candidates.length} unique candidates`
+  );
+  const stats = getListenerStats();
+  console.log(
+    `[pumpfun] logs seen: ${stats.logsSeen} | creates seen: ${stats.createLogsSeen} | resolved: ${stats.resolvedTotal} | resolve failures: ${stats.resolveFailures} | pending: ${stats.pendingCount}`
   );
 
   let passedCount = 0;
