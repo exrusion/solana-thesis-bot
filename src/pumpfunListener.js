@@ -17,7 +17,7 @@ const seenSignatures = new Set();
 let subscribed = false;
 
 // Diagnostics — so we can actually see what the listener is doing
-const stats = { logsSeen: 0, createLogsSeen: 0, resolvedTotal: 0, resolveFailures: 0 };
+const stats = { logsSeen: 0, createLogsSeen: 0, resolvedTotal: 0, resolveFailures: 0, suspiciousMints: 0 };
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -73,6 +73,11 @@ async function processNextPending() {
 
   const mint = await resolveMintFromSignature(signature);
   if (mint) {
+    // pump.fun's own UI grinds mint addresses to end in "pump" — a mismatch
+    // doesn't necessarily mean the extraction is wrong (API-created tokens
+    // without a vanity keypair won't have it), but a sustained high rate
+    // here would be a red flag worth investigating.
+    if (!mint.endsWith('pump')) stats.suspiciousMints++;
     enqueueMint(mint);
     stats.resolvedTotal++;
   } else {
