@@ -146,7 +146,7 @@ async function scanForNewPositions() {
 
   for (const entry of toCheck) {
     if (openMints.has(entry.mintAddress)) continue; // already holding it
-    await sleep(150); // stay comfortably under Helius's rate limit across ~25 lookups/tick
+    await sleep(300); // stay comfortably under Helius's rate limit across ~25 lookups/tick
 
     // bonding curve first — instant, zero indexing lag. DexScreener only as
     // a fallback for tokens that have already graduated off the curve.
@@ -267,7 +267,14 @@ async function scanForNewPositions() {
   console.log(`[scan] ${passedCount} candidate(s) passed safety filters this tick`);
 }
 
+let tickInProgress = false;
+
 async function tick() {
+  if (tickInProgress) {
+    console.log('[tick] previous tick still running — skipping this interval to avoid overlap');
+    return;
+  }
+  tickInProgress = true;
   console.log(`\n--- tick ${new Date().toISOString()} ---`);
   setLastTick();
   try {
@@ -275,6 +282,8 @@ async function tick() {
     await scanForNewPositions();
   } catch (err) {
     console.error(`[tick] unhandled error: ${err.message}`);
+  } finally {
+    tickInProgress = false;
   }
 }
 
