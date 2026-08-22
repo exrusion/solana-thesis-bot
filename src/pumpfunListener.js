@@ -4,6 +4,17 @@ import { connection } from './rpc.js';
 // Official pump.fun bonding-curve program. In its "create" instruction,
 // account index 0 is always the new token's mint.
 const PUMP_PROGRAM_ID = new PublicKey('6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P');
+const SOL_MINT = 'So11111111111111111111111111111111111111112';
+
+// Reference/infrastructure tokens that should never be treated as a
+// tradeable candidate, no matter how they got picked up — a hard
+// safety net on top of the extraction fix below.
+const BLOCKED_MINTS = new Set([
+  SOL_MINT,
+  'pumpCmXqMfrsAkQ5r49WcJnRayYRqmXz6ae8H7H9Dfn', // $PUMP governance token
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
+  'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', // USDT
+]);
 
 const MAX_QUEUE = 150; // per-queue cap
 const PROCESS_INTERVAL_MS = 1200;
@@ -39,7 +50,7 @@ function sleep(ms) {
 }
 
 function enqueueMint(mintAddress) {
-  if (!mintAddress || seenMints.has(mintAddress)) return;
+  if (!mintAddress || seenMints.has(mintAddress) || BLOCKED_MINTS.has(mintAddress)) return;
   seenMints.add(mintAddress);
   freshMints.push({ mintAddress, detectedAt: Date.now() });
   if (freshMints.length > MAX_QUEUE) {
@@ -94,9 +105,12 @@ async function resolveMintFromSignature(signature, isCreate) {
         }
         // buy/sell: read the mint from token balance changes instead of a
         // fixed account index — robust regardless of exact instruction
-        // account ordering, which we haven't independently verified for
-        // buy/sell (only for create).
-        return tx.meta?.postTokenBalances?.[0]?.mint || null;
+        // account ordering. Skip WSOL specifically, since pump.fun trades
+        // often touch it too and it can land before the actual traded
+        // token in the balance list.
+        const balances = tx.meta?.postTokenBalances || [];
+        const traded = balances.find((b) => b.mint && b.mint !== SOL_MINT);
+        return traded?.mint || balances[0]?.mint || null;
       }
     } catch (err) {
       // fall through to retry
