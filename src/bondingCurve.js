@@ -44,6 +44,7 @@ export async function fetchBondingCurveState(mintAddress) {
 
     const priceSolPerToken =
       Number(virtualSolReserves) / 1e9 / (Number(virtualTokenReserves) / 10 ** TOKEN_DECIMALS);
+    const marketCapSol = priceSolPerToken * (Number(tokenTotalSupply) / 10 ** TOKEN_DECIMALS);
 
     return {
       virtualTokenReserves,
@@ -54,6 +55,7 @@ export async function fetchBondingCurveState(mintAddress) {
       complete,
       priceSolPerToken,
       realSolReservesSol: Number(realSolReserves) / 1e9,
+      marketCapSol,
     };
   } catch (err) {
     return null;

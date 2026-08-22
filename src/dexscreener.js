@@ -45,6 +45,7 @@ function normalizePair(p) {
     symbol: p.baseToken?.symbol,
     priceUsd: parseFloat(p.priceUsd || '0'),
     liquidityUsd: p.liquidity?.usd || 0,
+    marketCapUsd: p.marketCap || p.fdv || 0,
     volume1h: p.volume?.h1 || 0,
     volume6h: p.volume?.h6 || 0,
     volume24h: p.volume?.h24 || 0,

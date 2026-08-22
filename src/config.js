@@ -23,6 +23,7 @@ export const config = {
   maxDailyLossSol: parseFloat(process.env.MAX_DAILY_LOSS_SOL || '2'),
   minHourlyVolumeUsd: parseFloat(process.env.MIN_1H_VOLUME_USD || '20000'),
   minLiquidityUsd: parseFloat(process.env.MIN_LIQUIDITY_USD || '10000'),
+  minMarketCapUsd: parseFloat(process.env.MIN_MARKET_CAP_USD || '10000'),
 
   scanIntervalMs: parseInt(process.env.SCAN_INTERVAL_MS || '60000', 10),
   port: parseInt(process.env.PORT || '3000', 10),

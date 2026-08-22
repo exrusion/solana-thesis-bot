@@ -20,6 +20,10 @@ export async function passesSafetyFilters(pair) {
     reasons.push(`liquidity $${pair.liquidityUsd.toFixed(0)} below minimum $${config.minLiquidityUsd}`);
   }
 
+  if ((pair.marketCapUsd || 0) < config.minMarketCapUsd) {
+    reasons.push(`market cap $${(pair.marketCapUsd || 0).toFixed(0)} below minimum $${config.minMarketCapUsd}`);
+  }
+
   if (pair.volume1h < config.minHourlyVolumeUsd) {
     reasons.push(`1h volume $${pair.volume1h.toFixed(0)} below minimum $${config.minHourlyVolumeUsd}`);
   }

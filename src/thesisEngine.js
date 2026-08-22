@@ -20,6 +20,7 @@ Respond with ONLY a JSON object, no other text, matching this shape:
 export async function generateThesis(stats) {
   const userPrompt = `Token: $${stats.symbol}
 Age: ${stats.ageHours?.toFixed(1) ?? 'unknown'}h
+Market cap: $${stats.marketCapUsd?.toFixed(0) ?? 'unknown'}
 Liquidity: $${stats.liquidityUsd.toFixed(0)}
 1h volume: $${stats.volume1h.toFixed(0)}
 6h volume: $${stats.volume6h.toFixed(0)}

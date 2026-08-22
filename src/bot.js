@@ -31,6 +31,7 @@ function killSwitchTripped() {
 /** Builds a pipeline-compatible candidate from on-chain bonding-curve reserves, with real momentum since we first saw it. */
 function buildBondingCurveCandidate(mintAddress, curve, solUsd, firstSeenAt, growthPercent) {
   const liquidityUsd = curve.realSolReservesSol * solUsd;
+  const marketCapUsd = curve.marketCapSol * solUsd;
   return {
     pairAddress: mintAddress, // no real DexScreener pair yet — position tracking uses mintAddress, not this
     dexId: 'pumpfun',
@@ -38,6 +39,7 @@ function buildBondingCurveCandidate(mintAddress, curve, solUsd, firstSeenAt, gro
     symbol: `${mintAddress.slice(0, 4)}…${mintAddress.slice(-4)}`,
     priceUsd: curve.priceSolPerToken * solUsd,
     liquidityUsd,
+    marketCapUsd,
     // Proxy, not true gross volume: the bonding curve gives reserves, not
     // trade history. Real SOL committed to the curve is a reasonable
     // stand-in for "how much genuine buying interest this has attracted."
@@ -154,17 +156,18 @@ async function scanForNewPositions() {
       entry.lastRealSolReservesSol = curve.realSolReservesSol;
 
       const liquidityUsd = curve.realSolReservesSol * solUsd;
+      const marketCapUsd = curve.marketCapSol * solUsd;
       const closeToExpiry = now - entry.firstSeenAt > FRESH_MINT_EXPIRY_MS - config.scanIntervalMs;
 
-      if (liquidityUsd >= config.minLiquidityUsd || closeToExpiry) {
-        // worth a real verdict now — either it's grown enough to plausibly
-        // pass, or this is its last chance before we give up on it
+      if (marketCapUsd >= config.minMarketCapUsd || closeToExpiry) {
+        // worth a real verdict now — either market cap has cleared the
+        // floor, or this is its last chance before we give up on it
         freshCandidates.push(
           buildBondingCurveCandidate(entry.mintAddress, curve, solUsd, entry.firstSeenAt, growthPercent)
         );
         totalFreshResolved++;
       } else {
-        stillPending.push(entry); // still too small — keep quietly tracking its growth
+        stillPending.push(entry); // still under the market cap floor — keep quietly tracking
       }
       continue;
     }
