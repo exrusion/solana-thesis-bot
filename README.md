@@ -39,16 +39,13 @@ Fill in `.env`:
 - `OPENROUTER_API_KEY` — from openrouter.ai. Set `OPENROUTER_MODEL` to
   whichever Claude model you want generating theses.
 
-Run locally first:
+Run it:
 ```
 npm start
 ```
-
-In a second terminal, run the API so you can watch it:
-```
-npm run api
-```
-Then hit `http://localhost:3000/status`, `/positions`, `/thesis-log`.
+This single command starts both the trading loop **and** the API/website
+server in one process, so they share the same local data store. Open
+`http://localhost:3000` to watch the journal live.
 
 ## Before you touch real money
 
@@ -59,19 +56,17 @@ Then hit `http://localhost:3000/status`, `/positions`, `/thesis-log`.
 - The safety filters here are a floor, not a guarantee. Rug patterns
   evolve; don't treat "passed the filters" as "safe."
 
-## Deploying (Railway, same pattern as your Cashcow setup)
+## Deploying (Railway — one service now)
 
-This repo runs as two services from one codebase — bot and API.
+The bot and API/website run in the same process, so this is **one Railway
+service**, not two. Push this repo to GitHub, connect it in Railway, set
+the Start Command to `npm start`, add all the env vars from `.env`, and
+turn on a public domain under Settings → Networking. That's it — the same
+service serves the website and runs the trading loop.
 
-```
-railway login
-railway init
-```
-Create two services in the Railway project: one running `npm start`
-(the bot), one running `npm run api` (the API). Set the same env vars
-from `.env` on both. Push the repo to GitHub and connect it in Railway,
-or deploy directly with `railway up` from each service's directory
-context.
+**Important:** never run this as two separate services pointed at the
+same wallet — that would mean two bots trading concurrently with the
+same funds.
 
 ## Data storage
 

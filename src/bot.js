@@ -1,3 +1,4 @@
+import './api.js'; // runs the API + serves the frontend in this same process
 import { config } from './config.js';
 import { getCandidatePairs, getPairData } from './dexscreener.js';
 import { passesSafetyFilters } from './safetyFilters.js';
