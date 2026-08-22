@@ -219,6 +219,55 @@ html, body {
   line-height: 1.5;
 }
 
+/* Insights panel */
+.insights-card {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 18px;
+}
+
+.insights-note {
+  font-family: var(--font-utility);
+  font-size: 0.68rem;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.insights-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.insights-row-label {
+  font-family: var(--font-utility);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.insights-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.insights-chip {
+  font-family: var(--font-utility);
+  font-size: 0.74rem;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--panel-border);
+  color: var(--fg);
+}
+
 /* Pulse strip — the signature element: a live heartbeat, not a mascot */
 .pulse-strip {
   display: flex;

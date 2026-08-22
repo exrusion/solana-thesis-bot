@@ -3,6 +3,7 @@ import './api.js'; // runs the API + serves the frontend in this same process
 import { config } from './config.js';
 import { getPairsForMint } from './dexscreener.js';
 import { fetchBondingCurveState, getSolUsdPrice } from './bondingCurve.js';
+import { fetchTokenMetadata } from './tokenMetadata.js';
 import { passesSafetyFilters } from './safetyFilters.js';
 import { generateThesis } from './thesisEngine.js';
 import { buyToken, sellToken } from './jupiter.js';
@@ -36,14 +37,19 @@ function killSwitchTripped() {
 }
 
 /** Builds a pipeline-compatible candidate from on-chain bonding-curve reserves, with real momentum since we first saw it. */
-function buildBondingCurveCandidate(mintAddress, curve, solUsd, firstSeenAt, growthPercent) {
+async function buildBondingCurveCandidate(mintAddress, curve, solUsd, firstSeenAt, growthPercent) {
   const liquidityUsd = curve.realSolReservesSol * solUsd;
   const marketCapUsd = curve.marketCapSol * solUsd;
+
+  const metadata = await fetchTokenMetadata(mintAddress);
+  const symbol = metadata?.symbol || `${mintAddress.slice(0, 4)}…${mintAddress.slice(-4)}`;
+
   return {
     pairAddress: mintAddress, // no real DexScreener pair yet — position tracking uses mintAddress, not this
     dexId: 'pumpfun',
     mintAddress,
-    symbol: `${mintAddress.slice(0, 4)}…${mintAddress.slice(-4)}`,
+    symbol,
+    name: metadata?.name || null,
     priceUsd: curve.priceSolPerToken * solUsd,
     liquidityUsd,
     marketCapUsd,
@@ -60,7 +66,7 @@ function buildBondingCurveCandidate(mintAddress, curve, solUsd, firstSeenAt, gro
     priceChange6h: growthPercent,
     priceChange24h: growthPercent,
     pairCreatedAt: firstSeenAt,
-    url: `https://pump.fun/${mintAddress}`,
+    url: `https://pump.fun/coin/${mintAddress}`,
   };
 }
 
@@ -183,7 +189,7 @@ async function scanForNewPositions() {
 
       if (marketCapUsd >= config.minMarketCapUsd) {
         freshCandidates.push(
-          buildBondingCurveCandidate(entry.mintAddress, curve, solUsd, entry.firstSeenAt, growthPercent)
+          await buildBondingCurveCandidate(entry.mintAddress, curve, solUsd, entry.firstSeenAt, growthPercent)
         );
         totalFreshResolved++;
       } else {
@@ -195,6 +201,7 @@ async function scanForNewPositions() {
     // graduated off the curve, or bonding curve unreadable — try DexScreener by mint
     const pair = await getPairsForMint(entry.mintAddress);
     if (pair) {
+      pair.url = `https://pump.fun/coin/${entry.mintAddress}`; // always pump.fun, never DexScreener
       freshCandidates.push(pair);
       totalFreshResolved++;
     } else {

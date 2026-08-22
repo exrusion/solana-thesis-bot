@@ -122,3 +122,50 @@ export async function processDueCheckpoints() {
 export function getOutcomes(limit = 100) {
   return readOutcomes().slice(0, limit);
 }
+
+function categorizeReason(reason) {
+  if (reason.includes('liquidity $')) return 'low liquidity';
+  if (reason.includes('market cap $')) return 'low market cap';
+  if (reason.includes('1h volume')) return 'low volume';
+  if (reason.includes('top holder controls')) return 'holder concentration';
+  if (reason.includes('mint authority')) return 'mint authority not revoked';
+  if (reason.includes('freeze authority')) return 'freeze authority not revoked';
+  if (reason.includes('RugCheck')) return 'RugCheck flag';
+  if (reason.includes('dexId')) return 'wrong DEX';
+  return 'other';
+}
+
+/**
+ * Real aggregate stats from the data collected so far — patterns observed,
+ * not automatic adjustments. Nothing here changes bot behavior on its own;
+ * it's meant to be read by a person deciding whether to tune something.
+ */
+export function getInsightsSummary() {
+  const records = readOutcomes();
+  const total = records.length;
+
+  const byDecision = { hold: 0, fail: 0, filtered: 0 };
+  for (const r of records) byDecision[r.decision] = (byDecision[r.decision] || 0) + 1;
+
+  const checkpointStatus = { alive: 0, graduated: 0, dead: 0, error: 0, pending: 0 };
+  for (const r of records) {
+    const cp = r.checkpoints['1h'];
+    if (!cp) checkpointStatus.pending++;
+    else checkpointStatus[cp.status] = (checkpointStatus[cp.status] || 0) + 1;
+  }
+
+  const reasonCounts = {};
+  for (const r of records) {
+    if (!r.filterReasons) continue;
+    for (const reason of r.filterReasons) {
+      const category = categorizeReason(reason);
+      reasonCounts[category] = (reasonCounts[category] || 0) + 1;
+    }
+  }
+  const topReasons = Object.entries(reasonCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([reason, count]) => ({ reason, count }));
+
+  return { total, byDecision, checkpointStatus, topReasons };
+}

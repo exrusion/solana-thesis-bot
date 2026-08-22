@@ -268,9 +268,51 @@ async function refreshLogs() {
   }
 }
 
+async function refreshInsights() {
+  try {
+    const data = await fetchJson('/insights');
+    const body = el('insightsBody');
+    if (!data.total) {
+      body.innerHTML = '<div class="empty-note">not enough data collected yet</div>';
+      return;
+    }
+
+    const decisionChips = Object.entries(data.byDecision)
+      .filter(([, count]) => count > 0)
+      .map(([decision, count]) => `<span class="insights-chip">${decision}: ${count}</span>`)
+      .join('');
+
+    const outcomeChips = Object.entries(data.checkpointStatus)
+      .filter(([, count]) => count > 0)
+      .map(([status, count]) => `<span class="insights-chip">${status}: ${count}</span>`)
+      .join('');
+
+    const reasonChips = (data.topReasons || [])
+      .map((r) => `<span class="insights-chip">${escapeHtml(r.reason)}: ${r.count}</span>`)
+      .join('');
+
+    body.innerHTML = `
+      <div>
+        <div class="insights-row-label">evaluated so far (${data.total} total)</div>
+        <div class="insights-chips">${decisionChips}</div>
+      </div>
+      <div>
+        <div class="insights-row-label">1h follow-up outcomes</div>
+        <div class="insights-chips">${outcomeChips || '<span class="empty-note">none due yet</span>'}</div>
+      </div>
+      <div>
+        <div class="insights-row-label">most common rejection reasons</div>
+        <div class="insights-chips">${reasonChips || '<span class="empty-note">none yet</span>'}</div>
+      </div>
+    `;
+  } catch (err) {
+    console.error('insights refresh failed', err);
+  }
+}
+
 async function refreshAll() {
   await refreshJournal(); // populate latestJournalEntry before status renders "now"/"last filed"
-  await Promise.all([refreshStatus(), refreshPositions(), refreshLogs()]);
+  await Promise.all([refreshStatus(), refreshPositions(), refreshLogs(), refreshInsights()]);
 }
 
 buildPulseBars();

@@ -11,7 +11,7 @@ import {
   getLastTick,
 } from './positions.js';
 import { connection, wallet } from './rpc.js';
-import { getOutcomes } from './outcomeTracker.js';
+import { getOutcomes, getInsightsSummary } from './outcomeTracker.js';
 import { getScanStats } from './scanStats.js';
 import { getRecentLogs } from './logCapture.js';
 import { getSolUsdPrice } from './bondingCurve.js';
@@ -69,6 +69,10 @@ app.get('/thesis-log', (req, res) => {
 app.get('/outcomes', (req, res) => {
   const limit = parseInt(req.query.limit, 10) || 100;
   res.json(getOutcomes(limit));
+});
+
+app.get('/insights', (req, res) => {
+  res.json(getInsightsSummary());
 });
 
 app.get('/logs', (req, res) => {
