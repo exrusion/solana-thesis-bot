@@ -23,7 +23,7 @@ import {
 
 const MAX_PENDING_FRESH_MINTS = 500;
 const MAX_LOOKUPS_PER_TICK = 25;
-const FRESH_MINT_EXPIRY_MS = 30 * 60 * 1000; // most pump.fun creates never trade at all — give real ones time
+const FRESH_MINT_EXPIRY_MS = 2 * 60 * 60 * 1000; // real momentum can take 30+ min to build
 
 let pendingFreshMints = []; // { mintAddress, firstSeenAt, lastRealSolReservesSol } — persists across ticks
 let totalFreshResolved = 0;
@@ -31,6 +31,29 @@ let totalFreshGivenUp = 0;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+
+/**
+ * Distinguishes rejections that can resolve on their own from ones that
+ * never will. A token with "3 unique buyers" may have 300 an hour later;
+ * a token whose mint authority was never revoked will never fix itself.
+ * Discarding the first kind on a single early look is how we lose the
+ * tokens that go on to run.
+ */
+const PERMANENT_PATTERNS = [
+  'mint authority',
+  'freeze authority',
+  'already rugged',
+  'RugCheck danger flags',
+  'RugCheck risk score',
+  'above maximum',
+  'is not pump.fun',
+  'missing mint address',
+];
+
+function isPermanentRejection(reasons) {
+  return reasons.some((r) => PERMANENT_PATTERNS.some((p) => r.includes(p)));
 }
 
 function killSwitchTripped() {
@@ -192,6 +215,7 @@ async function scanForNewPositions() {
   }
 
   const openMints = new Set(open.map((p) => p.mintAddress));
+  const watchedBefore = new Set(pendingFreshMints.filter((m) => m.journalled).map((m) => m.mintAddress));
 
   // fold newly detected mints into the retry pool
   const justDetected = drainFreshMints();
@@ -318,7 +342,27 @@ async function scanForNewPositions() {
 
     const filterResult = await passesSafetyFilters(pair);
     if (!filterResult.passed) {
-      console.log(`[filter] ${pair.symbol} skipped — ${filterResult.reasons.join('; ')}`);
+      const permanent = isPermanentRejection(filterResult.reasons);
+
+      // Transient failure: keep watching rather than discarding. Only the
+      // first look gets journalled, so a token under observation for an
+      // hour doesn't flood the feed with the same entry every tick.
+      if (!permanent) {
+        const alreadyWatching = pendingFreshMints.some((m) => m.mintAddress === pair.mintAddress);
+        if (!alreadyWatching) {
+          pendingFreshMints.push({
+            mintAddress: pair.mintAddress,
+            firstSeenAt: pair.pairCreatedAt || Date.now(),
+            lastRealSolReservesSol: pair.liquidityUsd && solUsd ? pair.liquidityUsd / solUsd : null,
+            journalled: true,
+          });
+        }
+        if (watchedBefore.has(pair.mintAddress)) {
+          continue; // already told the story once — stay quiet while we watch
+        }
+      }
+
+      console.log(`[filter] ${pair.symbol} skipped — ${filterResult.reasons.join('; ')}${permanent ? '' : ' (still watching)'}`);
       logThesis({
         type: 'filtered',
         symbol: pair.symbol,
