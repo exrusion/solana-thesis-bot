@@ -348,7 +348,11 @@ async function scanForNewPositions() {
       ? (Date.now() - pair.pairCreatedAt) / (1000 * 60 * 60)
       : null;
 
-    const stats = { ...pair, ageHours };
+    // Fold in everything the filters already measured — holder
+    // concentration, observed buyers, buy/sell ratio, RugCheck score.
+    // Without this the model reasons on "unknown" for its most important
+    // structural signals.
+    const stats = { ...pair, ageHours, ...(filterResult.metrics || {}) };
     let thesis;
     try {
       thesis = await generateThesis(stats);

@@ -36,7 +36,14 @@ export async function passesSafetyFilters(pair) {
 
   // Observed trade activity. These counts only include trades seen while
   // the bot has been running, so they're a floor, not a full picture.
+  const metrics = {};
   const trades = getTradeStats(pair.mintAddress);
+  if (trades) {
+    metrics.uniqueBuyers = trades.uniqueBuyers;
+    metrics.buySellRatio = trades.buySellRatio;
+    metrics.activityIncreasing = trades.activityIncreasing;
+    metrics.observedTradeCount = trades.tradeCount;
+  }
   if (!trades) {
     reasons.push('no trade activity observed yet');
   } else {
@@ -76,6 +83,12 @@ export async function passesSafetyFilters(pair) {
     config.maxTopHolderPercent,
     config.maxTop10Percent
   );
+  if (holderSafety.topHolderPercent !== undefined) {
+    metrics.topHolderPercent = holderSafety.topHolderPercent;
+    metrics.top10Percent = holderSafety.top10Percent;
+    metrics.realHolderCount = holderSafety.realHolderCount;
+    metrics.poolPercent = holderSafety.poolPercent;
+  }
   if (!holderSafety.safe) {
     reasons.push(holderSafety.reason);
   }
@@ -86,6 +99,8 @@ export async function passesSafetyFilters(pair) {
   // "unknown," not "unsafe" — a third-party outage shouldn't halt trading.
   const rugCheck = await getRugCheckReport(pair.mintAddress);
   if (rugCheck) {
+    metrics.rugcheckScore = rugCheck.score;
+    metrics.rugcheckFlags = rugCheck.dangerRisks;
     if (rugCheck.rugged) {
       reasons.push('RugCheck flags this token as already rugged');
     }
@@ -97,5 +112,5 @@ export async function passesSafetyFilters(pair) {
     }
   }
 
-  return { passed: reasons.length === 0, reasons };
+  return { passed: reasons.length === 0, reasons, metrics };
 }

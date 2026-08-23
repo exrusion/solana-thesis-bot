@@ -40,31 +40,36 @@ export async function checkMintSafety(mintAddress) {
   }
 }
 
-const PUMP_PROGRAM_ID = new PublicKey('6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P');
-const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
-const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
-
 /**
- * Derives the bonding curve's own token account. This account holds all
- * unsold supply and ALWAYS appears as the largest holder — it is the
- * liquidity pool, not a whale. Counting it as holder concentration
- * rejects healthy tokens for a problem that doesn't exist.
+ * Any liquidity pool / program vault is a Program Derived Address, which
+ * by definition is NOT on the ed25519 curve. Real user wallets always
+ * are. So instead of guessing which address is the pool, we read each
+ * token account's actual owner and drop the ones owned by a PDA — that
+ * catches the pump.fun bonding curve, PumpSwap pools, and any other
+ * program vault, without needing to know their addresses in advance.
  */
-function findBondingCurveTokenAccount(mint) {
-  const [curve] = PublicKey.findProgramAddressSync(
-    [Buffer.from('bonding-curve'), mint.toBuffer()],
-    PUMP_PROGRAM_ID
-  );
-  const [ata] = PublicKey.findProgramAddressSync(
-    [curve.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],
-    ASSOCIATED_TOKEN_PROGRAM_ID
-  );
-  return ata;
+async function fetchAccountOwners(addresses) {
+  const infos = await connection.getMultipleAccountsInfo(addresses);
+  return infos.map((info) => {
+    if (!info || info.data.length < 64) return null;
+    // SPL token account layout: mint(32) | owner(32) | amount(8) | ...
+    try {
+      return new PublicKey(info.data.subarray(32, 64));
+    } catch (err) {
+      return null;
+    }
+  });
 }
 
 /**
- * Checks real holder concentration, excluding the bonding curve/LP.
- * Returns both top-1 and top-10 concentration among actual holders.
+ * Real holder concentration, measured against TOTAL supply and with all
+ * pool/vault accounts removed from the holder list.
+ *
+ * Total supply is the denominator on purpose: it's what "top 10 hold X%"
+ * conventionally means, and it's the only stable measure early on. Using
+ * circulating supply instead makes any young token read as 100%
+ * concentrated purely because few wallets have bought yet — an artifact
+ * of arithmetic, not a real distribution problem.
  */
 export async function checkHolderConcentration(mintAddress, maxTopHolderPercent = 20, maxTop10Percent = 30) {
   try {
@@ -77,34 +82,44 @@ export async function checkHolderConcentration(mintAddress, maxTopHolderPercent 
       return { safe: false, reason: 'could not read supply / holder data' };
     }
 
-    const lpAccount = findBondingCurveTokenAccount(mintPubkey).toBase58();
-    const realHolders = largest.value.filter((a) => a.address.toBase58() !== lpAccount);
+    const addresses = largest.value.map((a) => a.address);
+    const owners = await fetchAccountOwners(addresses);
+
+    const realHolders = [];
+    let poolAmount = 0;
+    for (let i = 0; i < largest.value.length; i++) {
+      const owner = owners[i];
+      const amount = Number(largest.value[i].amount);
+      // owner unreadable, or owner is a PDA (pool/vault) -> not a person
+      if (!owner || !PublicKey.isOnCurve(owner.toBytes())) {
+        poolAmount += amount;
+        continue;
+      }
+      realHolders.push({ amount, owner: owner.toBase58() });
+    }
 
     if (!realHolders.length) {
-      // everything is still in the curve — nobody has bought yet
-      return { safe: true, topHolderPercent: 0, top10Percent: 0, circulatingHolders: 0 };
+      return {
+        safe: true,
+        topHolderPercent: 0,
+        top10Percent: 0,
+        realHolderCount: 0,
+        poolPercent: (poolAmount / totalSupply) * 100,
+      };
     }
 
-    // Concentration is measured against circulating supply (what's actually
-    // out of the curve), not total supply — otherwise every early token
-    // looks perfectly distributed simply because the curve holds most of it.
-    const lpEntry = largest.value.find((a) => a.address.toBase58() === lpAccount);
-    const lpAmount = lpEntry ? Number(lpEntry.amount) : 0;
-    const circulating = totalSupply - lpAmount;
-    if (circulating <= 0) {
-      return { safe: true, topHolderPercent: 0, top10Percent: 0, circulatingHolders: 0 };
-    }
+    realHolders.sort((a, b) => b.amount - a.amount);
 
-    const topHolderPercent = (Number(realHolders[0].amount) / circulating) * 100;
-    const top10Amount = realHolders.slice(0, 10).reduce((sum, a) => sum + Number(a.amount), 0);
-    const top10Percent = (top10Amount / circulating) * 100;
+    const topHolderPercent = (realHolders[0].amount / totalSupply) * 100;
+    const top10Amount = realHolders.slice(0, 10).reduce((sum, h) => sum + h.amount, 0);
+    const top10Percent = (top10Amount / totalSupply) * 100;
 
     const reasons = [];
     if (topHolderPercent > maxTopHolderPercent) {
-      reasons.push(`top holder controls ${topHolderPercent.toFixed(1)}% of circulating supply`);
+      reasons.push(`top holder controls ${topHolderPercent.toFixed(1)}% of total supply`);
     }
     if (top10Percent > maxTop10Percent) {
-      reasons.push(`top 10 holders control ${top10Percent.toFixed(1)}% of circulating supply`);
+      reasons.push(`top 10 holders control ${top10Percent.toFixed(1)}% of total supply`);
     }
 
     return {
@@ -112,7 +127,8 @@ export async function checkHolderConcentration(mintAddress, maxTopHolderPercent 
       reason: reasons.join('; '),
       topHolderPercent,
       top10Percent,
-      circulatingHolders: realHolders.length,
+      realHolderCount: realHolders.length,
+      poolPercent: (poolAmount / totalSupply) * 100,
     };
   } catch (err) {
     return { safe: false, reason: `holder check failed: ${err.message}` };

@@ -49,7 +49,13 @@ Age: ${stats.ageHours?.toFixed(1) ?? 'unknown'}h
 Market cap: $${stats.marketCapUsd?.toFixed(0) ?? 'unknown'}
 Liquidity: $${stats.liquidityUsd.toFixed(0)}
 ${volumeLines}
-Top holder concentration: ${stats.topHolderPercent?.toFixed(1) ?? 'unknown'}%`;
+Top holder: ${stats.topHolderPercent !== undefined ? stats.topHolderPercent.toFixed(1) + '% of total supply (pools excluded)' : 'unknown'}
+Top 10 holders: ${stats.top10Percent !== undefined ? stats.top10Percent.toFixed(1) + '% of total supply (pools excluded)' : 'unknown'}
+Distinct real holders seen: ${stats.realHolderCount ?? 'unknown'}
+Still held by the liquidity pool: ${stats.poolPercent !== undefined ? stats.poolPercent.toFixed(1) + '%' : 'unknown'}
+Unique buyers observed: ${stats.uniqueBuyers ?? 'none observed yet'}
+Buy/sell volume ratio: ${stats.buySellRatio !== undefined ? (stats.buySellRatio === Infinity ? 'all buys, no sells' : stats.buySellRatio.toFixed(2) + 'x') : 'unknown'}
+RugCheck risk score: ${stats.rugcheckScore ?? 'unknown'} (0-100, lower is safer)`;
 
   const res = await axios.post(
     'https://openrouter.ai/api/v1/chat/completions',

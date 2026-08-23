@@ -9,11 +9,11 @@
     "api": "node src/api.js"
   },
   "dependencies": {
-    "@solana/web3.js": "^1.95.3",
+    "@solana/web3.js": "^1.98.4",
     "axios": "^1.7.7",
     "bs58": "^5.0.0",
+    "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "cors": "^2.8.5"
+    "express": "^4.19.2"
   }
 }
