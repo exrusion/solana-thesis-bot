@@ -1,5 +1,5 @@
 {
-  "name": "solana-thesis-bot",
+  "name": "pump-trade",
   "version": "1.0.0",
   "description": "Autonomous Solana meme-coin trading bot that generates AI trading theses and executes real trades",
   "type": "module",

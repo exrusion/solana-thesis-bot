@@ -490,7 +490,7 @@ async function tick() {
   }
 }
 
-console.log('solana-thesis-bot starting.');
+console.log('Pump Trade starting.');
 console.log(`max position size: ${config.maxPositionSizeSol} SOL | max concurrent: ${config.maxConcurrentPositions}`);
 console.log(`stop-loss: ${config.stopLossPercent}% | daily loss limit: ${config.maxDailyLossSol} SOL`);
 

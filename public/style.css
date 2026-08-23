@@ -268,6 +268,28 @@ html, body {
   color: var(--fg);
 }
 
+/* X link */
+.x-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  font-family: var(--font-utility);
+  font-size: 0.72rem;
+  color: var(--fg);
+  text-decoration: none;
+  transition: border-color 0.2s ease, color 0.2s ease;
+  margin-left: auto;
+  margin-right: 18px;
+}
+
+.x-link:hover {
+  border-color: var(--pulse);
+  color: var(--pulse);
+}
+
 /* Pulse strip — the signature element: a live heartbeat, not a mascot */
 .pulse-strip {
   display: flex;

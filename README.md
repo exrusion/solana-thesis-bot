@@ -1,6 +1,6 @@
-# solana-thesis-bot (v1)
+# Pump Trade
 
-Autonomous Solana meme-coin trading bot. Scans live pairs on DexScreener,
+Autonomous Solana meme-coin trading bot. Follow at https://x.com/TradePumps Scans live pairs on DexScreener,
 runs on-chain safety checks via Helius, generates a structured buy/pass
 thesis via an LLM through OpenRouter, and — if the thesis says "hold" —
 executes a real swap through Jupiter with real funds.
