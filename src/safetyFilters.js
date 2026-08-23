@@ -73,6 +73,15 @@ export async function passesSafetyFilters(pair) {
     return { passed: false, reasons };
   }
 
+  // Everything above is free (in-memory / already-fetched). Everything
+  // below costs 4 RPC calls plus an HTTP request per candidate. Most
+  // tokens fail on the cheap checks, so bail here rather than paying for
+  // network calls just to append more reasons to an already-doomed
+  // candidate — that cost is what was pushing ticks past their interval.
+  if (reasons.length > 0) {
+    return { passed: false, reasons, metrics };
+  }
+
   const mintSafety = await checkMintSafety(pair.mintAddress);
   if (!mintSafety.safe) {
     reasons.push(mintSafety.reason);

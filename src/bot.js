@@ -419,6 +419,7 @@ async function tick() {
     return;
   }
   tickInProgress = true;
+  const tickStart = Date.now();
   console.log(`\n--- tick ${new Date().toISOString()} ---`);
   setLastTick();
   incrementTickCount();
@@ -434,6 +435,13 @@ async function tick() {
   } catch (err) {
     console.error(`[tick] unhandled error: ${err.message}`);
   } finally {
+    const elapsed = ((Date.now() - tickStart) / 1000).toFixed(1);
+    const budget = (config.scanIntervalMs / 1000).toFixed(0);
+    if (Date.now() - tickStart > config.scanIntervalMs) {
+      console.error(`[tick] took ${elapsed}s — OVER the ${budget}s interval, next tick(s) will be skipped`);
+    } else {
+      console.log(`[tick] completed in ${elapsed}s of ${budget}s budget`);
+    }
     tickInProgress = false;
   }
 }

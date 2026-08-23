@@ -16,7 +16,7 @@ const BASE_URL = 'https://api.rugcheck.xyz/v1';
 export async function getRugCheckReport(mintAddress) {
   try {
     const res = await axios.get(`${BASE_URL}/tokens/${mintAddress}/report`, {
-      timeout: 8000,
+      timeout: 3000,
     });
     const data = res.data;
 
