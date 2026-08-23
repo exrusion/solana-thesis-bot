@@ -1,6 +1,7 @@
 import { checkMintSafety, checkHolderConcentration } from './rpc.js';
 import { getRugCheckReport } from './rugcheck.js';
 import { config } from './config.js';
+import { getTradeStats } from './tradeStats.js';
 
 /**
  * Runs every candidate through hard gates before it's allowed anywhere
@@ -21,8 +22,33 @@ export async function passesSafetyFilters(pair) {
     reasons.push(`liquidity $${pair.liquidityUsd.toFixed(0)} below minimum $${config.minLiquidityUsd}`);
   }
 
-  if ((pair.marketCapUsd || 0) < config.minMarketCapUsd) {
-    reasons.push(`market cap $${(pair.marketCapUsd || 0).toFixed(0)} below minimum $${config.minMarketCapUsd}`);
+  const mc = pair.marketCapUsd || 0;
+  if (mc < config.minMarketCapUsd) {
+    reasons.push(`market cap $${mc.toFixed(0)} below minimum $${config.minMarketCapUsd}`);
+  } else if (mc > config.maxMarketCapUsd) {
+    reasons.push(`market cap $${mc.toFixed(0)} above maximum $${config.maxMarketCapUsd}`);
+  }
+
+  const ageMinutes = pair.pairCreatedAt ? (Date.now() - pair.pairCreatedAt) / 60000 : null;
+  if (ageMinutes !== null && ageMinutes < config.minTokenAgeMinutes) {
+    reasons.push(`only ${ageMinutes.toFixed(1)}m old, minimum ${config.minTokenAgeMinutes}m`);
+  }
+
+  // Observed trade activity. These counts only include trades seen while
+  // the bot has been running, so they're a floor, not a full picture.
+  const trades = getTradeStats(pair.mintAddress);
+  if (!trades) {
+    reasons.push('no trade activity observed yet');
+  } else {
+    if (trades.uniqueBuyers < config.minUniqueBuyers) {
+      reasons.push(`${trades.uniqueBuyers} unique buyers observed, minimum ${config.minUniqueBuyers}`);
+    }
+    if (trades.buySellRatio < config.minBuySellRatio) {
+      reasons.push(`buy/sell volume ratio ${trades.buySellRatio.toFixed(2)}x below minimum ${config.minBuySellRatio}x`);
+    }
+    if (!trades.activityIncreasing) {
+      reasons.push('trade activity not increasing');
+    }
   }
 
   // Volume check only applies to graduated tokens, where DexScreener gives
@@ -45,7 +71,11 @@ export async function passesSafetyFilters(pair) {
     reasons.push(mintSafety.reason);
   }
 
-  const holderSafety = await checkHolderConcentration(pair.mintAddress);
+  const holderSafety = await checkHolderConcentration(
+    pair.mintAddress,
+    config.maxTopHolderPercent,
+    config.maxTop10Percent
+  );
   if (!holderSafety.safe) {
     reasons.push(holderSafety.reason);
   }

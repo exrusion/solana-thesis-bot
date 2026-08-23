@@ -14,6 +14,7 @@ import {
   getOpenPositions,
   openPosition,
   closePosition,
+  updatePosition,
   logThesis,
   recordRealizedPnl,
   getTodaysPnl,
@@ -105,33 +106,74 @@ async function manageOpenPositions() {
     openPositionsValueUsd += currentValueUsd;
 
     const pnlPercent = ((currentPriceUsd - pos.entryPriceUsd) / pos.entryPriceUsd) * 100;
+    const heldMinutes = (Date.now() - new Date(pos.openedAt).getTime()) / 60000;
+    const remainingRaw = pos.remainingTokenRaw ?? pos.tokenAmountRaw;
+    const tookFirstProfit = pos.tookFirstProfit === true;
 
+    // Decide what this tick calls for, in priority order.
+    let action = null;
     if (pnlPercent <= -config.stopLossPercent) {
-      console.log(`[exit] ${pos.symbol} hit stop-loss at ${pnlPercent.toFixed(1)}% — selling`);
-      try {
-        const result = await sellToken(pos.mintAddress, pos.tokenAmountRaw);
-        const exitSol = Number(result.outAmount) / 1e9;
-        const realizedPnlSol = exitSol - pos.entrySolAmount;
+      action = { type: 'full', label: `stop-loss tripped at ${pnlPercent.toFixed(1)}%` };
+    } else if (pnlPercent >= config.takeProfitPercent2) {
+      action = { type: 'full', label: `target hit at +${pnlPercent.toFixed(1)}% — closing the rest` };
+    } else if (!tookFirstProfit && pnlPercent >= config.takeProfitPercent1) {
+      action = { type: 'partial', label: `+${pnlPercent.toFixed(1)}% — taking half off the table` };
+    } else if (heldMinutes >= config.maxHoldMinutes) {
+      action = { type: 'full', label: `${config.maxHoldMinutes}m time limit reached at ${pnlPercent >= 0 ? '+' : ''}${pnlPercent.toFixed(1)}%` };
+    }
 
-        closePosition(pos.mintAddress, {
-          exitPriceUsd: currentPriceUsd,
-          exitSignature: result.signature,
-          realizedPnlSol,
+    if (!action) continue;
+
+    const sellRaw =
+      action.type === 'partial'
+        ? Math.floor(Number(remainingRaw) / 2).toString()
+        : remainingRaw;
+
+    console.log(`[exit] ${pos.symbol} — ${action.label}`);
+    try {
+      const result = await sellToken(pos.mintAddress, sellRaw);
+      const exitSol = Number(result.outAmount) / 1e9;
+
+      if (action.type === 'partial') {
+        const leftover = (BigInt(remainingRaw) - BigInt(sellRaw)).toString();
+        updatePosition(pos.mintAddress, {
+          remainingTokenRaw: leftover,
+          tookFirstProfit: true,
+          partialExitSol: (pos.partialExitSol || 0) + exitSol,
         });
-        recordRealizedPnl(realizedPnlSol);
+        recordRealizedPnl(exitSol - pos.entrySolAmount / 2);
         logThesis({
           type: 'exit',
           symbol: pos.symbol,
           mintAddress: pos.mintAddress,
           url: `https://pump.fun/coin/${pos.mintAddress}`,
           reasons: [
-            `stop-loss tripped at ${pnlPercent.toFixed(1)}% — the ${config.stopLossPercent}% floor doesn't negotiate.`,
-            `selling before this becomes a lesson instead of a trade. realized: ${realizedPnlSol >= 0 ? '+' : ''}${realizedPnlSol.toFixed(3)} SOL.`,
+            action.label + '.',
+            `half sold for ${exitSol.toFixed(3)} SOL, rest rides to +${config.takeProfitPercent2}% or the ${config.maxHoldMinutes}m bell.`,
           ],
         });
-      } catch (err) {
-        console.error(`[exit] sell failed for ${pos.symbol}: ${err.message}`);
+      } else {
+        const totalOut = exitSol + (pos.partialExitSol || 0);
+        const realizedPnlSol = totalOut - pos.entrySolAmount;
+        closePosition(pos.mintAddress, {
+          exitPriceUsd: currentPriceUsd,
+          exitSignature: result.signature,
+          realizedPnlSol,
+        });
+        recordRealizedPnl(exitSol - (tookFirstProfit ? pos.entrySolAmount / 2 : pos.entrySolAmount));
+        logThesis({
+          type: 'exit',
+          symbol: pos.symbol,
+          mintAddress: pos.mintAddress,
+          url: `https://pump.fun/coin/${pos.mintAddress}`,
+          reasons: [
+            action.label + '.',
+            `position closed. total realized: ${realizedPnlSol >= 0 ? '+' : ''}${realizedPnlSol.toFixed(3)} SOL.`,
+          ],
+        });
       }
+    } catch (err) {
+      console.error(`[exit] sell failed for ${pos.symbol}: ${err.message}`);
     }
   }
 
@@ -341,6 +383,9 @@ async function scanForNewPositions() {
           entryPriceUsd: pair.priceUsd,
           entrySolAmount: config.maxPositionSizeSol,
           tokenAmountRaw: result.outAmount,
+          remainingTokenRaw: result.outAmount,
+          tookFirstProfit: false,
+          partialExitSol: 0,
           entrySignature: result.signature,
           thesis,
         });

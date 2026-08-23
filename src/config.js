@@ -30,7 +30,16 @@ export const config = {
   // cap range. Recalibrated to roughly match what $10k+ market cap tokens
   // actually have in real liquidity.
   minLiquidityUsd: parseFloat(process.env.MIN_LIQUIDITY_USD || '2500'),
-  minMarketCapUsd: parseFloat(process.env.MIN_MARKET_CAP_USD || '10000'),
+  minMarketCapUsd: parseFloat(process.env.MIN_MARKET_CAP_USD || '20000'),
+  maxMarketCapUsd: parseFloat(process.env.MAX_MARKET_CAP_USD || '80000'),
+  minUniqueBuyers: parseInt(process.env.MIN_UNIQUE_BUYERS || '60', 10),
+  minBuySellRatio: parseFloat(process.env.MIN_BUY_SELL_RATIO || '2.5'),
+  maxTopHolderPercent: parseFloat(process.env.MAX_TOP_HOLDER_PERCENT || '20'),
+  maxTop10Percent: parseFloat(process.env.MAX_TOP10_PERCENT || '30'),
+  minTokenAgeMinutes: parseFloat(process.env.MIN_TOKEN_AGE_MINUTES || '3'),
+  takeProfitPercent1: parseFloat(process.env.TAKE_PROFIT_PCT_1 || '40'),
+  takeProfitPercent2: parseFloat(process.env.TAKE_PROFIT_PCT_2 || '100'),
+  maxHoldMinutes: parseFloat(process.env.MAX_HOLD_MINUTES || '20'),
   maxRugcheckScore: parseFloat(process.env.MAX_RUGCHECK_SCORE || '50'),
 
   scanIntervalMs: parseInt(process.env.SCAN_INTERVAL_MS || '60000', 10),

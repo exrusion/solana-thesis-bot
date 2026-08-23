@@ -40,6 +40,16 @@ export function openPosition(position) {
   writeJson(POSITIONS_FILE, positions);
 }
 
+/** Merges fields into an open position (used for partial exits). */
+export function updatePosition(mintAddress, fields) {
+  const positions = readJson(POSITIONS_FILE, []);
+  const idx = positions.findIndex((p) => p.mintAddress === mintAddress && p.status === 'open');
+  if (idx === -1) return null;
+  positions[idx] = { ...positions[idx], ...fields };
+  writeJson(POSITIONS_FILE, positions);
+  return positions[idx];
+}
+
 export function closePosition(mintAddress, exitData) {
   const positions = readJson(POSITIONS_FILE, []);
   const idx = positions.findIndex((p) => p.mintAddress === mintAddress && p.status === 'open');

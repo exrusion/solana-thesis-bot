@@ -1,5 +1,6 @@
 import { PublicKey } from '@solana/web3.js';
 import { connection } from './rpc.js';
+import { recordTrade } from './tradeStats.js';
 
 // Official pump.fun bonding-curve program. In its "create" instruction,
 // account index 0 is always the new token's mint.
@@ -21,10 +22,10 @@ const PROCESS_INTERVAL_MS = 1200;
 const MAX_RETRIES = 5;
 const RETRY_DELAY_MS = 600;
 
-// Trade signals are sampled much more sparsely than before — the previous
-// rate (1-in-50) was flooding the processing queue and risked crowding out
-// creates entirely, since both shared one queue with the same throughput.
-const TRADE_SAMPLE_RATE = 400; // process roughly 1 in 400 trade signatures
+// Trades are now parsed for real buyer/volume statistics, not just
+// discovery — so we sample far more of them than before. Still not 1:1,
+// since resolution costs an RPC call each.
+const TRADE_SAMPLE_RATE = 8;
 
 const freshMints = []; // resolved: { mintAddress, detectedAt }
 // Separate queues so high-volume trade sampling can never starve creates —
@@ -73,24 +74,25 @@ function handleLog({ signature, logs }) {
     stats.tradeLogsSeen++;
     tradeCounter++;
     if (tradeCounter % TRADE_SAMPLE_RATE !== 0) return; // sampled out — most trades are skipped on purpose
+    const isBuy = logs.some((l) => l.includes('Instruction: Buy'));
     seenSignatures.add(signature);
-    pendingTrades.push(signature);
+    pendingTrades.push({ signature, isBuy });
     if (pendingTrades.length > MAX_QUEUE) {
       const removed = pendingTrades.shift();
-      seenSignatures.delete(removed);
+      seenSignatures.delete(removed.signature);
     }
   } else {
     stats.createLogsSeen++;
     seenSignatures.add(signature);
-    pendingCreates.push(signature);
+    pendingCreates.push({ signature, isBuy: false });
     if (pendingCreates.length > MAX_QUEUE) {
       const removed = pendingCreates.shift();
-      seenSignatures.delete(removed);
+      seenSignatures.delete(removed.signature);
     }
   }
 }
 
-async function resolveMintFromSignature(signature, isCreate) {
+async function resolveTransaction(signature, isCreate) {
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
       const tx = await connection.getParsedTransaction(signature, {
@@ -101,16 +103,25 @@ async function resolveMintFromSignature(signature, isCreate) {
           const ix = tx.transaction?.message?.instructions?.find(
             (i) => i.programId?.toBase58?.() === PUMP_PROGRAM_ID.toBase58()
           );
-          return ix?.accounts?.[0]?.toBase58?.() || null;
+          return { mint: ix?.accounts?.[0]?.toBase58?.() || null };
         }
-        // buy/sell: read the mint from token balance changes instead of a
-        // fixed account index — robust regardless of exact instruction
-        // account ordering. Skip WSOL specifically, since pump.fun trades
-        // often touch it too and it can land before the actual traded
-        // token in the balance list.
+
+        // buy/sell: skip WSOL when picking the traded mint, since pump.fun
+        // trades often touch it too and it can land first in the list.
         const balances = tx.meta?.postTokenBalances || [];
         const traded = balances.find((b) => b.mint && b.mint !== SOL_MINT);
-        return traded?.mint || balances[0]?.mint || null;
+        const mint = traded?.mint || balances[0]?.mint || null;
+
+        // The fee payer is the trader. Their SOL delta approximates trade
+        // size — it includes network fees, so treat it as a close proxy
+        // rather than an exact figure.
+        const wallet = tx.transaction?.message?.accountKeys?.[0]?.pubkey?.toBase58?.() || null;
+        const pre = tx.meta?.preBalances?.[0];
+        const post = tx.meta?.postBalances?.[0];
+        const solAmount =
+          pre !== undefined && post !== undefined ? Math.abs(pre - post) / 1e9 : 0;
+
+        return { mint, wallet, solAmount };
       }
     } catch (err) {
       // fall through to retry
@@ -122,21 +133,34 @@ async function resolveMintFromSignature(signature, isCreate) {
 
 async function processNextPending() {
   // creates always go first — trades only get processed once creates are caught up
-  let signature = pendingCreates.shift();
+  let item = pendingCreates.shift();
   let isCreate = true;
-  if (!signature) {
-    signature = pendingTrades.shift();
+  if (!item) {
+    item = pendingTrades.shift();
     isCreate = false;
   }
-  if (!signature) return;
+  if (!item) return;
 
-  const mint = await resolveMintFromSignature(signature, isCreate);
-  if (mint) {
-    if (!mint.endsWith('pump')) stats.suspiciousMints++;
-    enqueueMint(mint);
-    stats.resolvedTotal++;
-  } else {
+  const parsed = await resolveTransaction(item.signature, isCreate);
+  if (!parsed || !parsed.mint) {
     stats.resolveFailures++;
+    return;
+  }
+
+  if (!parsed.mint.endsWith('pump')) stats.suspiciousMints++;
+  enqueueMint(parsed.mint);
+  stats.resolvedTotal++;
+
+  // For trades, accumulate real per-token activity: who bought, how much,
+  // and when. This is the only source of unique-buyer and buy/sell-ratio
+  // data — the bonding curve account stores current state, not history.
+  if (!isCreate && parsed.wallet) {
+    recordTrade({
+      mint: parsed.mint,
+      wallet: parsed.wallet,
+      isBuy: item.isBuy,
+      solAmount: parsed.solAmount,
+    });
   }
 }
 
