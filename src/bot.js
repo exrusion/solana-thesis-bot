@@ -239,6 +239,15 @@ async function scanForNewPositions() {
 
       const marketCapUsd = curve.marketCapSol * solUsd;
 
+      // Keep tracking anything that's simply too young rather than
+      // evaluating and discarding it — that condition resolves on its own
+      // within minutes, and a discarded token is gone for good.
+      const ageMinutes = (now - entry.firstSeenAt) / 60000;
+      if (ageMinutes < config.minTokenAgeMinutes) {
+        stillPending.push(entry);
+        continue;
+      }
+
       if (marketCapUsd >= config.minMarketCapUsd) {
         freshCandidates.push(
           await buildBondingCurveCandidate(entry.mintAddress, curve, solUsd, entry.firstSeenAt, growthPercent)
