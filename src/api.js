@@ -11,7 +11,7 @@ import {
   getLastTick,
 } from './positions.js';
 import { connection, wallet } from './rpc.js';
-import { getOutcomes, getInsightsSummary } from './outcomeTracker.js';
+import { getOutcomes, getInsightsSummary, getLearningSummary } from './outcomeTracker.js';
 import { getScanStats } from './scanStats.js';
 import { getRecentLogs } from './logCapture.js';
 import { getSolUsdPrice } from './bondingCurve.js';
@@ -73,6 +73,10 @@ app.get('/outcomes', (req, res) => {
 
 app.get('/insights', (req, res) => {
   res.json(getInsightsSummary());
+});
+
+app.get('/learning', (req, res) => {
+  res.json(getLearningSummary());
 });
 
 app.get('/logs', (req, res) => {

@@ -170,3 +170,85 @@ export function getInsightsSummary() {
 
   return { total, byDecision, checkpointStatus, topReasons };
 }
+
+/**
+ * Correlates each rejection reason against what actually happened to those
+ * tokens afterwards. This is the genuinely useful signal: it tells you
+ * whether a filter is earning its place or throwing away winners.
+ *
+ * Two distinct things are surfaced here, and they are NOT the same:
+ *  - RugCheck flags come from a real, pre-trained ML model (wallet
+ *    clustering, anomaly detection) that actively gates every candidate.
+ *  - Everything else is straightforward aggregation of our own outcome
+ *    data. No model is trained on it, and nothing self-adjusts.
+ */
+export function getLearningSummary() {
+  const records = readOutcomes();
+
+  // only records with a resolved 1h checkpoint can tell us anything
+  const resolved = records.filter((r) => r.checkpoints['1h'] && r.checkpoints['1h'].status !== 'error');
+
+  const emptyOutcome = () => ({ dead: 0, alive: 0, graduated: 0, total: 0 });
+
+  // How each rejection reason correlates with what happened next
+  const byReason = {};
+  for (const r of resolved) {
+    if (!r.filterReasons) continue;
+    const status = r.checkpoints['1h'].status;
+    const seen = new Set();
+    for (const reason of r.filterReasons) {
+      const cat = categorizeReason(reason);
+      if (seen.has(cat)) continue; // don't double-count one token per category
+      seen.add(cat);
+      if (!byReason[cat]) byReason[cat] = emptyOutcome();
+      byReason[cat][status] = (byReason[cat][status] || 0) + 1;
+      byReason[cat].total++;
+    }
+  }
+
+  const filterCalibration = Object.entries(byReason)
+    .filter(([, o]) => o.total >= 3) // don't draw conclusions from one or two samples
+    .map(([reason, o]) => ({
+      reason,
+      total: o.total,
+      diedPercent: (o.dead / o.total) * 100,
+      survivedPercent: ((o.alive + o.graduated) / o.total) * 100,
+    }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 6);
+
+  // How the AI's own verdicts held up
+  const thesisCalibration = {};
+  for (const r of resolved) {
+    if (r.decision !== 'hold' && r.decision !== 'fail') continue;
+    if (!thesisCalibration[r.decision]) thesisCalibration[r.decision] = emptyOutcome();
+    const status = r.checkpoints['1h'].status;
+    thesisCalibration[r.decision][status] = (thesisCalibration[r.decision][status] || 0) + 1;
+    thesisCalibration[r.decision].total++;
+  }
+
+  // Which RugCheck ML signals fire most often
+  const rugcheckFlags = {};
+  for (const r of records) {
+    if (!r.filterReasons) continue;
+    for (const reason of r.filterReasons) {
+      if (!reason.startsWith('RugCheck danger flags:')) continue;
+      const flags = reason.replace('RugCheck danger flags:', '').split(',').map((f) => f.trim());
+      for (const f of flags) {
+        if (f) rugcheckFlags[f] = (rugcheckFlags[f] || 0) + 1;
+      }
+    }
+  }
+  const topRugcheckFlags = Object.entries(rugcheckFlags)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([flag, count]) => ({ flag, count }));
+
+  return {
+    totalRecords: records.length,
+    resolvedRecords: resolved.length,
+    filterCalibration,
+    thesisCalibration,
+    topRugcheckFlags,
+  };
+}

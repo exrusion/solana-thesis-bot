@@ -313,9 +313,56 @@ async function refreshInsights() {
   }
 }
 
+async function refreshLearning() {
+  try {
+    const d = await fetchJson('/learning');
+    const body = el('learningBody');
+
+    if (!d.resolvedRecords) {
+      body.innerHTML = `<div class="empty-note">${d.totalRecords} evaluated, 0 with completed 1h follow-ups yet &mdash; nothing conclusive to report</div>`;
+      return;
+    }
+
+    const calib = (d.filterCalibration || [])
+      .map(
+        (c) =>
+          `<div class="rule-row"><span>${escapeHtml(c.reason)} <span style="color:var(--muted)">(n=${c.total})</span></span><span>${c.diedPercent.toFixed(0)}% died &middot; ${c.survivedPercent.toFixed(0)}% survived</span></div>`
+      )
+      .join('');
+
+    const thesis = Object.entries(d.thesisCalibration || {})
+      .map(([decision, o]) => {
+        const survived = (((o.alive || 0) + (o.graduated || 0)) / o.total) * 100;
+        return `<div class="rule-row"><span>AI said &ldquo;${decision}&rdquo; <span style="color:var(--muted)">(n=${o.total})</span></span><span>${survived.toFixed(0)}% still alive at 1h</span></div>`;
+      })
+      .join('');
+
+    const flags = (d.topRugcheckFlags || [])
+      .map((f) => `<span class="insights-chip">${escapeHtml(f.flag)}: ${f.count}</span>`)
+      .join('');
+
+    body.innerHTML = `
+      <div>
+        <div class="insights-row-label">is each filter earning its place? (${d.resolvedRecords} resolved)</div>
+        ${calib || '<div class="empty-note">not enough samples per reason yet</div>'}
+      </div>
+      <div>
+        <div class="insights-row-label">how the AI's own verdicts held up</div>
+        ${thesis || '<div class="empty-note">no AI verdicts resolved yet</div>'}
+      </div>
+      <div>
+        <div class="insights-row-label">rugcheck ML signals fired most</div>
+        <div class="insights-chips">${flags || '<span class="empty-note">none yet</span>'}</div>
+      </div>
+    `;
+  } catch (err) {
+    console.error('learning refresh failed', err);
+  }
+}
+
 async function refreshAll() {
   await refreshJournal(); // populate latestJournalEntry before status renders "now"/"last filed"
-  await Promise.all([refreshStatus(), refreshPositions(), refreshLogs(), refreshInsights()]);
+  await Promise.all([refreshStatus(), refreshPositions(), refreshLogs(), refreshInsights(), refreshLearning()]);
 }
 
 buildPulseBars();
