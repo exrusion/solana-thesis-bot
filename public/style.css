@@ -49,10 +49,16 @@ html, body {
 }
 
 .brand-logo {
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   flex-shrink: 0;
-  filter: drop-shadow(0 0 10px rgba(92, 200, 224, 0.25));
+  filter: drop-shadow(0 0 12px rgba(110, 231, 168, 0.28));
+  animation: logo-float 4s ease-in-out infinite alternate;
+}
+
+@keyframes logo-float {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-3px); }
 }
 
 .brand-mark {
@@ -617,5 +623,5 @@ html, body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pulse-line span, .live-dot { animation: none; }
+  .pulse-line span, .live-dot, .brand-logo { animation: none; }
 }
