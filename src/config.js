@@ -32,7 +32,11 @@ export const config = {
   minLiquidityUsd: parseFloat(process.env.MIN_LIQUIDITY_USD || '2500'),
   minMarketCapUsd: parseFloat(process.env.MIN_MARKET_CAP_USD || '20000'),
   maxMarketCapUsd: parseFloat(process.env.MAX_MARKET_CAP_USD || '80000'),
-  minUniqueBuyers: parseInt(process.env.MIN_UNIQUE_BUYERS || '60', 10),
+  // We resolve roughly 1 in 8 trade events (each costs an RPC call), so
+  // this counts OBSERVED unique buyers, not the true total. 8 observed
+  // implies on the order of 60+ real buyers — which is the actual target.
+  // If TRADE_SAMPLE_RATE in pumpfunListener.js changes, revisit this.
+  minUniqueBuyers: parseInt(process.env.MIN_UNIQUE_BUYERS || '8', 10),
   minBuySellRatio: parseFloat(process.env.MIN_BUY_SELL_RATIO || '2.5'),
   maxTopHolderPercent: parseFloat(process.env.MAX_TOP_HOLDER_PERCENT || '20'),
   maxTop10Percent: parseFloat(process.env.MAX_TOP10_PERCENT || '30'),

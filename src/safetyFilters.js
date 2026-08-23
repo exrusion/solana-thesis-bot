@@ -48,7 +48,7 @@ export async function passesSafetyFilters(pair) {
     reasons.push('no trade activity observed yet');
   } else {
     if (trades.uniqueBuyers < config.minUniqueBuyers) {
-      reasons.push(`${trades.uniqueBuyers} unique buyers observed, minimum ${config.minUniqueBuyers}`);
+      reasons.push(`${trades.uniqueBuyers} of ${config.minUniqueBuyers} sampled buyers (~${trades.uniqueBuyers * 8} real, need ~${config.minUniqueBuyers * 8})`);
     }
     if (trades.buySellRatio < config.minBuySellRatio) {
       reasons.push(`buy/sell volume ratio ${trades.buySellRatio.toFixed(2)}x below minimum ${config.minBuySellRatio}x`);
