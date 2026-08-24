@@ -64,6 +64,28 @@ export async function fetchBondingCurveState(mintAddress) {
 
 const SOL_MINT_ADDRESS = 'So11111111111111111111111111111111111111112';
 
+/**
+ * Counts recent transactions against a token's own bonding curve account.
+ *
+ * This replaces inferring activity from a global 1-in-8 trade sample —
+ * that sample is spread across thousands of tokens, so any single token
+ * showed 0-1 events no matter how busy it really was. Querying the
+ * token's own account gives a true count for one extra RPC call.
+ */
+export async function getRecentTradeCount(mintAddress, lookbackMinutes = 15) {
+  try {
+    const pda = findBondingCurveAddress(mintAddress);
+    const sigs = await connection.getSignaturesForAddress(pda, { limit: 200 });
+    if (!sigs.length) return { total: 0, recent: 0 };
+
+    const cutoff = Date.now() / 1000 - lookbackMinutes * 60;
+    const recent = sigs.filter((s) => s.blockTime && s.blockTime >= cutoff).length;
+    return { total: sigs.length, recent, hitLimit: sigs.length >= 200 };
+  } catch (err) {
+    return null;
+  }
+}
+
 let cachedSolUsd = null;
 let cachedAt = 0;
 const SOL_PRICE_CACHE_MS = 5 * 60 * 1000;

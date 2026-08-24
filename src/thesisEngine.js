@@ -86,6 +86,7 @@ Top holder: ${stats.topHolderPercent !== undefined ? stats.topHolderPercent.toFi
 Top 10 holders: ${stats.top10Percent !== undefined ? stats.top10Percent.toFixed(1) + '% of total supply (pools excluded)' : 'unknown'}
 Distinct real holders seen: ${stats.realHolderCount ?? 'unknown'}
 Unsold supply still in the bonding curve: ${stats.poolPercent !== undefined ? stats.poolPercent.toFixed(1) + '%' : 'unknown'} (this is the curve mechanism holding tokens nobody has bought yet — it is NOT a whale and will never dump; a high number just means the token is early)
+Real transactions on this token in the last 15 minutes: ${stats.recentTrades ?? 'unknown'} (measured directly against the token's own bonding curve account — this figure is accurate)
 Unique buyers SAMPLED: ${stats.uniqueBuyers ?? 'none yet'} — CRITICAL: this is NOT the token's buyer count. We resolve only ~1 in 8 trade events, and only during the ~10 minutes we have been watching. The true figure is many times larger and unknown. Treat this as a rough floor, never as evidence that "only N people bought this". If real trade volume is present below, that is the far better signal of participation.
 Buy/sell volume ratio (from the same sample): ${stats.buySellRatio !== undefined ? (stats.buySellRatio === Infinity ? 'all buys, no sells' : stats.buySellRatio.toFixed(2) + 'x') : 'unknown'}
 RugCheck risk score: ${stats.rugcheckScore ?? 'unknown'} (0-100, lower is safer)

@@ -2,6 +2,7 @@ import { checkMintSafety, checkHolderConcentration } from './rpc.js';
 import { getRugCheckReport } from './rugcheck.js';
 import { config } from './config.js';
 import { getTradeStats } from './tradeStats.js';
+import { getRecentTradeCount } from './bondingCurve.js';
 
 /**
  * Runs every candidate through hard gates before it's allowed anywhere
@@ -37,6 +38,19 @@ export async function passesSafetyFilters(pair) {
   // Observed trade activity. These counts only include trades seen while
   // the bot has been running, so they're a floor, not a full picture.
   const metrics = {};
+
+  // Real per-token activity, measured directly.
+  const tradeCount = await getRecentTradeCount(pair.mintAddress);
+  if (tradeCount) {
+    metrics.recentTrades = tradeCount.recent;
+    metrics.totalTradesSeen = tradeCount.total;
+    if (tradeCount.recent < config.minRecentTrades) {
+      reasons.push(
+        `${tradeCount.recent} transactions in the last 15min, need ${config.minRecentTrades}`
+      );
+    }
+  }
+
   const trades = getTradeStats(pair.mintAddress);
   if (trades) {
     metrics.uniqueBuyers = trades.uniqueBuyers;
@@ -45,10 +59,10 @@ export async function passesSafetyFilters(pair) {
     metrics.observedTradeCount = trades.tradeCount;
   }
   if (!trades) {
-    if (config.requireTradeActivity) reasons.push('no trade activity observed yet');
+    // covered by the direct transaction count above
   } else {
-    if (trades.uniqueBuyers < config.minUniqueBuyers) {
-      reasons.push(`${trades.uniqueBuyers} of ${config.minUniqueBuyers} sampled buyers (~${trades.uniqueBuyers * 8} real, need ~${config.minUniqueBuyers * 8})`);
+    if (config.minUniqueBuyers > 0 && trades.uniqueBuyers < config.minUniqueBuyers) {
+      reasons.push(`${trades.uniqueBuyers} of ${config.minUniqueBuyers} sampled buyers`);
     }
     if (trades.buySellRatio < config.minBuySellRatio) {
       reasons.push(`buy/sell volume ratio ${trades.buySellRatio.toFixed(2)}x below minimum ${config.minBuySellRatio}x`);

@@ -36,7 +36,11 @@ export const config = {
   // this counts OBSERVED unique buyers, not the true total. 8 observed
   // implies on the order of 60+ real buyers — which is the actual target.
   // If TRADE_SAMPLE_RATE in pumpfunListener.js changes, revisit this.
-  minUniqueBuyers: parseInt(process.env.MIN_UNIQUE_BUYERS || '2', 10),
+  // Real transactions against the token's own bonding curve in the recent
+  // window. Unlike the old sampled buyer count, this is measured directly
+  // per token rather than inferred from a global sample.
+  minRecentTrades: parseInt(process.env.MIN_RECENT_TRADES || '12', 10),
+  minUniqueBuyers: parseInt(process.env.MIN_UNIQUE_BUYERS || '0', 10),
   minBuySellRatio: parseFloat(process.env.MIN_BUY_SELL_RATIO || '1.2'),
   maxTopHolderPercent: parseFloat(process.env.MAX_TOP_HOLDER_PERCENT || '20'),
   maxTop10Percent: parseFloat(process.env.MAX_TOP10_PERCENT || '45'),
