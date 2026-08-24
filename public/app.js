@@ -153,7 +153,13 @@ async function refreshPositions() {
     }
     for (const p of open) {
       const li = document.createElement('li');
-      li.innerHTML = `<span>$${escapeHtml(p.symbol)}</span><span>${p.entrySolAmount} SOL</span>`;
+      const entryTx = p.entrySignature
+        ? `<a class="verify-link" href="https://solscan.io/tx/${p.entrySignature}" target="_blank" rel="noopener">tx&nearr;</a>`
+        : '';
+      const tokenLink = p.mintAddress
+        ? `<a class="verify-link" href="https://pump.fun/coin/${p.mintAddress}" target="_blank" rel="noopener">chart&nearr;</a>`
+        : '';
+      li.innerHTML = `<span>$${escapeHtml(p.symbol)}${entryTx}${tokenLink}</span><span>${p.entrySolAmount} SOL</span>`;
       list.appendChild(li);
     }
   } catch (err) {
@@ -274,6 +280,55 @@ async function refreshLogs() {
   }
 }
 
+async function refreshHistory() {
+  try {
+    const positions = await fetchJson('/positions');
+    const closed = positions.filter((p) => p.status === 'closed');
+    const body = el('historyBody');
+
+    if (!closed.length) {
+      body.innerHTML = '<div class="empty-note">&gt; no closed trades yet ... _</div>';
+      return;
+    }
+
+    closed.sort((a, b) => new Date(b.closedAt) - new Date(a.closedAt));
+
+    body.innerHTML = closed
+      .map((p) => {
+        const pnl = p.realizedPnlSol ?? 0;
+        const cls = pnl > 0 ? 'pnl-up' : pnl < 0 ? 'pnl-down' : '';
+        const pct =
+          p.entryPriceUsd && p.exitPriceUsd
+            ? ((p.exitPriceUsd - p.entryPriceUsd) / p.entryPriceUsd) * 100
+            : null;
+
+        const links = [];
+        if (p.entrySignature) {
+          links.push(`<a href="https://solscan.io/tx/${p.entrySignature}" target="_blank" rel="noopener">buy tx &nearr;</a>`);
+        }
+        if (p.exitSignature) {
+          links.push(`<a href="https://solscan.io/tx/${p.exitSignature}" target="_blank" rel="noopener">sell tx &nearr;</a>`);
+        }
+        if (p.mintAddress) {
+          links.push(`<a href="https://pump.fun/coin/${p.mintAddress}" target="_blank" rel="noopener">chart &nearr;</a>`);
+        }
+
+        return `
+          <div class="trade-row">
+            <div class="trade-head">
+              <span class="trade-symbol">$${escapeHtml(p.symbol || '?')}</span>
+              <span class="entry-time">${fmtTime(p.openedAt)} &rarr; ${fmtTime(p.closedAt)}</span>
+              <span class="trade-pnl ${cls}">${fmtSol(pnl)}${pct !== null ? ` (${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%)` : ''}</span>
+            </div>
+            <div class="trade-links">${links.join('')}</div>
+          </div>`;
+      })
+      .join('');
+  } catch (err) {
+    console.error('history refresh failed', err);
+  }
+}
+
 async function refreshInsights() {
   try {
     const data = await fetchJson('/insights');
@@ -365,7 +420,7 @@ async function refreshLearning() {
 
 async function refreshAll() {
   await refreshJournal(); // populate latestJournalEntry before status renders "now"/"last filed"
-  await Promise.all([refreshStatus(), refreshPositions(), refreshLogs(), refreshInsights(), refreshLearning()]);
+  await Promise.all([refreshStatus(), refreshPositions(), refreshLogs(), refreshInsights(), refreshLearning(), refreshHistory()]);
 }
 
 buildPulseBars();

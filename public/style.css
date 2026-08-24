@@ -133,6 +133,52 @@ html, body {
   .stats-bar { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* Trade history */
+.trade-row {
+  border-bottom: 1px solid var(--panel-border);
+  padding: 12px 0;
+}
+.trade-row:last-child { border-bottom: none; }
+
+.trade-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.trade-symbol {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.92rem;
+  margin-right: auto;
+}
+
+.trade-pnl { font-family: var(--font-display); font-weight: 700; font-size: 0.92rem; }
+.pnl-up { color: var(--hold); }
+.pnl-down { color: var(--fail); }
+
+.trade-links {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-family: var(--font-utility);
+  font-size: 0.68rem;
+}
+
+.trade-links a { color: var(--pulse); text-decoration: none; }
+.trade-links a:hover { text-decoration: underline; }
+
+.verify-link {
+  font-family: var(--font-utility);
+  font-size: 0.64rem;
+  color: var(--pulse);
+  text-decoration: none;
+  margin-left: 6px;
+}
+.verify-link:hover { text-decoration: underline; }
+
 /* ASCII progress meter */
 .curve-bar-ascii {
   font-family: var(--font-utility);
