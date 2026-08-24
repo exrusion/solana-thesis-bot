@@ -307,23 +307,23 @@ async function scanForNewPositions() {
       entry.lastRealSolReservesSol = curve.realSolReservesSol;
       if (!entry.firstMeasuredAt) entry.firstMeasuredAt = now;
 
+      const ageMinutes = (now - entry.firstSeenAt) / 60000;
+      const marketCapUsd = curve.marketCapSol * solUsd;
+
+      // Keep tracking anything that's simply too young rather than
+      // evaluating and discarding it — that condition resolves on its own
+      // within minutes, and a discarded token is gone for good.
+      if (ageMinutes < config.minTokenAgeMinutes) {
+        stillPending.push(entry);
+        continue;
+      }
+
       // Normally we wait for a second reading so growth is a real
       // measurement. A brand-new launch has no history to compare against
       // and the move is over before a second pass comes round, so it is
       // evaluated on sight instead — the filters still have to pass.
       const isFreshLaunch = ageMinutes <= config.freshLaneMaxAgeMinutes;
       if (!hasBaseline && !isFreshLaunch) {
-        stillPending.push(entry);
-        continue;
-      }
-
-      const marketCapUsd = curve.marketCapSol * solUsd;
-
-      // Keep tracking anything that's simply too young rather than
-      // evaluating and discarding it — that condition resolves on its own
-      // within minutes, and a discarded token is gone for good.
-      const ageMinutes = (now - entry.firstSeenAt) / 60000;
-      if (ageMinutes < config.minTokenAgeMinutes) {
         stillPending.push(entry);
         continue;
       }
