@@ -56,7 +56,14 @@ export async function passesSafetyFilters(pair) {
       tradeCount.acceleration >= config.minAcceleration &&
       tradeCount.recent >= config.minTradesWhenAccelerating;
 
-    if (!busyEnough && !wakingUp) {
+    // A token minutes old has no 15-minute history to fill; its entire
+    // life is inside the window. Judge it on total activity since launch
+    // rather than penalising it for not having existed long enough.
+    const ageMinutes = pair.pairCreatedAt ? (Date.now() - pair.pairCreatedAt) / 60000 : null;
+    const isFresh = ageMinutes !== null && ageMinutes <= config.freshLaneMaxAgeMinutes;
+    const freshAndBusy = isFresh && tradeCount.total >= config.minRecentTrades;
+
+    if (!busyEnough && !wakingUp && !freshAndBusy) {
       const accel =
         tradeCount.acceleration === null
           ? 'no prior activity to compare'

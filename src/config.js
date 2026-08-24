@@ -61,6 +61,11 @@ export const config = {
   requireActivityIncreasing: process.env.REQUIRE_ACTIVITY_INCREASING === 'true',
   requireTradeActivity: process.env.REQUIRE_TRADE_ACTIVITY !== 'false',
   minTokenAgeMinutes: parseFloat(process.env.MIN_TOKEN_AGE_MINUTES || '2'),
+  // Fresh launches cannot have a baseline to accelerate against, and the
+  // normal rotation would judge them long after the move. Tokens younger
+  // than this get checked first and evaluated on sight, provided they
+  // already clear the market cap floor and show real transactions.
+  freshLaneMaxAgeMinutes: parseFloat(process.env.FRESH_LANE_MAX_AGE_MINUTES || '12'),
   takeProfitPercent1: parseFloat(process.env.TAKE_PROFIT_PCT_1 || '40'),
   takeProfitPercent2: parseFloat(process.env.TAKE_PROFIT_PCT_2 || '100'),
   maxHoldMinutes: parseFloat(process.env.MAX_HOLD_MINUTES || '20'),

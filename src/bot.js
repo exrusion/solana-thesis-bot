@@ -279,7 +279,11 @@ async function scanForNewPositions() {
   if (!solUsd) {
     console.error('[scan] WARNING: SOL/USD price unavailable — bonding-curve candidates will fall through to the ungated DexScreener path this tick');
   }
-  const toCheck = pendingFreshMints.slice(0, MAX_LOOKUPS_PER_TICK);
+  // Youngest first. A fresh launch waiting six minutes for its turn in a
+  // FIFO queue is a fresh launch we will always be too late for.
+  const ordered = [...pendingFreshMints].sort((a, b) => b.firstSeenAt - a.firstSeenAt);
+  const toCheck = ordered.slice(0, MAX_LOOKUPS_PER_TICK);
+  const checkedSet = new Set(toCheck.map((e) => e.mintAddress));
   const stillPending = [];
   const freshCandidates = [];
 
@@ -303,10 +307,12 @@ async function scanForNewPositions() {
       entry.lastRealSolReservesSol = curve.realSolReservesSol;
       if (!entry.firstMeasuredAt) entry.firstMeasuredAt = now;
 
-      // Never evaluate on the very first observation — without a prior
-      // reading there is no momentum signal at all, and the model reads
-      // the missing number as "momentum died".
-      if (!hasBaseline) {
+      // Normally we wait for a second reading so growth is a real
+      // measurement. A brand-new launch has no history to compare against
+      // and the move is over before a second pass comes round, so it is
+      // evaluated on sight instead — the filters still have to pass.
+      const isFreshLaunch = ageMinutes <= config.freshLaneMaxAgeMinutes;
+      if (!hasBaseline && !isFreshLaunch) {
         stillPending.push(entry);
         continue;
       }
@@ -346,7 +352,10 @@ async function scanForNewPositions() {
   // Tokens we just checked go to the BACK, not the front. Putting them
   // first meant slice(0, N) grabbed the same N every tick and the rest of
   // the pool was never examined at all.
-  pendingFreshMints = [...pendingFreshMints.slice(MAX_LOOKUPS_PER_TICK), ...stillPending];
+  pendingFreshMints = [
+    ...pendingFreshMints.filter((e) => !checkedSet.has(e.mintAddress)),
+    ...stillPending,
+  ];
 
   const candidateMap = new Map();
   for (const pair of freshCandidates) {
