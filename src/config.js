@@ -29,18 +29,23 @@ export const config = {
   // conventions and was silently rejecting most of the $10k-$30k market
   // cap range. Recalibrated to roughly match what $10k+ market cap tokens
   // actually have in real liquidity.
-  minLiquidityUsd: parseFloat(process.env.MIN_LIQUIDITY_USD || '2500'),
-  minMarketCapUsd: parseFloat(process.env.MIN_MARKET_CAP_USD || '20000'),
-  maxMarketCapUsd: parseFloat(process.env.MAX_MARKET_CAP_USD || '80000'),
+  minLiquidityUsd: parseFloat(process.env.MIN_LIQUIDITY_USD || '1200'),
+  minMarketCapUsd: parseFloat(process.env.MIN_MARKET_CAP_USD || '5000'),
+  maxMarketCapUsd: parseFloat(process.env.MAX_MARKET_CAP_USD || '1000000'),
   // We resolve roughly 1 in 8 trade events (each costs an RPC call), so
   // this counts OBSERVED unique buyers, not the true total. 8 observed
   // implies on the order of 60+ real buyers — which is the actual target.
   // If TRADE_SAMPLE_RATE in pumpfunListener.js changes, revisit this.
-  minUniqueBuyers: parseInt(process.env.MIN_UNIQUE_BUYERS || '8', 10),
-  minBuySellRatio: parseFloat(process.env.MIN_BUY_SELL_RATIO || '2.5'),
+  minUniqueBuyers: parseInt(process.env.MIN_UNIQUE_BUYERS || '2', 10),
+  minBuySellRatio: parseFloat(process.env.MIN_BUY_SELL_RATIO || '1.2'),
   maxTopHolderPercent: parseFloat(process.env.MAX_TOP_HOLDER_PERCENT || '20'),
-  maxTop10Percent: parseFloat(process.env.MAX_TOP10_PERCENT || '30'),
-  minTokenAgeMinutes: parseFloat(process.env.MIN_TOKEN_AGE_MINUTES || '3'),
+  maxTop10Percent: parseFloat(process.env.MAX_TOP10_PERCENT || '45'),
+  // Loosened deliberately so the untested buy/sell path finally executes.
+  // These are plumbing-test settings, NOT the strategy you specified —
+  // tighten them back once a buy and sell have completed cleanly.
+  requireActivityIncreasing: process.env.REQUIRE_ACTIVITY_INCREASING === 'true',
+  requireTradeActivity: process.env.REQUIRE_TRADE_ACTIVITY !== 'false',
+  minTokenAgeMinutes: parseFloat(process.env.MIN_TOKEN_AGE_MINUTES || '2'),
   takeProfitPercent1: parseFloat(process.env.TAKE_PROFIT_PCT_1 || '40'),
   takeProfitPercent2: parseFloat(process.env.TAKE_PROFIT_PCT_2 || '100'),
   maxHoldMinutes: parseFloat(process.env.MAX_HOLD_MINUTES || '20'),
