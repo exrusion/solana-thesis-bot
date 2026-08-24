@@ -52,7 +52,7 @@ ${volumeLines}
 Top holder: ${stats.topHolderPercent !== undefined ? stats.topHolderPercent.toFixed(1) + '% of total supply (pools excluded)' : 'unknown'}
 Top 10 holders: ${stats.top10Percent !== undefined ? stats.top10Percent.toFixed(1) + '% of total supply (pools excluded)' : 'unknown'}
 Distinct real holders seen: ${stats.realHolderCount ?? 'unknown'}
-Still held by the liquidity pool: ${stats.poolPercent !== undefined ? stats.poolPercent.toFixed(1) + '%' : 'unknown'}
+Unsold supply still in the bonding curve: ${stats.poolPercent !== undefined ? stats.poolPercent.toFixed(1) + '%' : 'unknown'} (this is the curve mechanism holding tokens nobody has bought yet — it is NOT a whale and will never dump; a high number just means the token is early)
 Unique buyers observed: ${stats.uniqueBuyers ?? 'none observed yet'}
 Buy/sell volume ratio: ${stats.buySellRatio !== undefined ? (stats.buySellRatio === Infinity ? 'all buys, no sells' : stats.buySellRatio.toFixed(2) + 'x') : 'unknown'}
 RugCheck risk score: ${stats.rugcheckScore ?? 'unknown'} (0-100, lower is safer)`;
