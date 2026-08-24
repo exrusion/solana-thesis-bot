@@ -61,32 +61,53 @@ export function recordEvaluation({ mintAddress, symbol, decision, entrySnapshot,
   writeOutcomes(records.length > MAX_RECORDS ? records.slice(0, MAX_RECORDS) : records);
 }
 
-async function fetchCurrentState(mintAddress) {
+async function fetchCurrentState(mintAddress, entrySnapshot) {
   const solUsd = await getSolUsdPrice();
   const curve = await fetchBondingCurveState(mintAddress);
 
-  if (curve && !curve.complete && solUsd) {
+  // A graduated token's curve account is zeroed out, so fetchBondingCurveState
+  // returns null. Checking curve?.complete on a null object silently yields
+  // undefined and everything got filed as "alive" — hence 0 graduated.
+  if (curve && curve.complete) {
+    const pair = await getPairsForMint(mintAddress);
     return {
-      status: 'alive',
-      marketCapUsd: curve.marketCapSol * solUsd,
-      liquidityUsd: curve.realSolReservesSol * solUsd,
+      status: 'graduated',
+      marketCapUsd: pair?.marketCapUsd || 0,
+      liquidityUsd: pair?.liquidityUsd || 0,
+      priceUsd: pair?.priceUsd || 0,
+    };
+  }
+
+  if (curve && !curve.complete && solUsd) {
+    const marketCapUsd = curve.marketCapSol * solUsd;
+    const liquidityUsd = curve.realSolReservesSol * solUsd;
+    const entryMc = entrySnapshot?.marketCapUsd || 0;
+
+    // "Alive" has to mean something. A curve account existing proves
+    // nothing — they persist forever. Treat a collapse from where we
+    // evaluated it, or the near-total absence of committed SOL, as dead.
+    const collapsed = entryMc > 0 && marketCapUsd < entryMc * 0.3;
+    const abandoned = liquidityUsd < 200;
+
+    return {
+      status: collapsed || abandoned ? 'dead' : 'alive',
+      marketCapUsd,
+      liquidityUsd,
       priceUsd: curve.priceSolPerToken * solUsd,
     };
   }
 
-  // graduated, or bonding curve unreadable — try DexScreener
+  // Curve unreadable: either it graduated and moved to an AMM, or it's gone.
   const pair = await getPairsForMint(mintAddress);
   if (pair) {
     return {
-      status: curve?.complete ? 'graduated' : 'alive',
+      status: 'graduated',
       marketCapUsd: pair.marketCapUsd || 0,
       liquidityUsd: pair.liquidityUsd || 0,
       priceUsd: pair.priceUsd || 0,
     };
   }
 
-  // no data anywhere — almost always means the token was abandoned with
-  // zero real activity, which is itself a meaningful, common outcome
   return { status: 'dead', marketCapUsd: 0, liquidityUsd: 0, priceUsd: 0 };
 }
 
@@ -109,7 +130,7 @@ export async function processDueCheckpoints() {
 
   for (const { record, label } of toProcess) {
     try {
-      const state = await fetchCurrentState(record.mintAddress);
+      const state = await fetchCurrentState(record.mintAddress, record.entrySnapshot);
       record.checkpoints[label] = { checkedAt: new Date().toISOString(), ...state };
     } catch (err) {
       record.checkpoints[label] = { checkedAt: new Date().toISOString(), status: 'error' };
@@ -182,8 +203,17 @@ export function getInsightsSummary() {
  *  - Everything else is straightforward aggregation of our own outcome
  *    data. No model is trained on it, and nothing self-adjusts.
  */
+const CLASSIFIER_FIXED_AT = new Date('2026-08-24T13:00:00Z').getTime();
+
 export function getLearningSummary() {
-  const records = readOutcomes();
+  const all = readOutcomes();
+  // Records checked before the classifier fix are unreliable (graduated
+  // tokens were filed as alive, and "alive" only meant the account
+  // existed). Excluding them beats reporting known-wrong percentages.
+  const records = all.filter((r) => {
+    const cp = r.checkpoints['1h'];
+    return !cp || new Date(cp.checkedAt).getTime() >= CLASSIFIER_FIXED_AT;
+  });
 
   // only records with a resolved 1h checkpoint can tell us anything
   const resolved = records.filter((r) => r.checkpoints['1h'] && r.checkpoints['1h'].status !== 'error');
