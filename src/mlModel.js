@@ -110,7 +110,7 @@ export function buildTrainingSet(records) {
   const X = [];
   const y = [];
   for (const r of records) {
-    const cp = r.checkpoints?.['15m'] || r.checkpoints?.['1h'];
+    const cp = r.checkpoints?.['15m'] || r.checkpoints?.['5m'] || r.checkpoints?.['1h'];
     if (!cp || cp.status === 'error') continue;
     if (!r.entrySnapshot) continue;
     X.push(extractFeatures(r.entrySnapshot));

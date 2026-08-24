@@ -10,8 +10,9 @@ const OUTCOMES_FILE = path.join(DATA_DIR, 'outcomes.json');
 // Follow-up windows — matches the intervals commonly used in published
 // memecoin-outcome datasets, so this data would be directly comparable.
 const CHECKPOINTS = [
-  // 15m matches the bot's own ~20 minute holding period and produces
-  // training labels fast enough to be useful.
+  // 5m gives the panel something to show quickly; 15m matches the bot's
+  // own ~20 minute holding period and is the primary training label.
+  { label: '5m', ms: 5 * 60 * 1000 },
   { label: '15m', ms: 15 * 60 * 1000 },
   { label: '1h', ms: 60 * 60 * 1000 },
   { label: '6h', ms: 6 * 60 * 60 * 1000 },
@@ -218,13 +219,13 @@ export function getLearningSummary() {
   // tokens were filed as alive, and "alive" only meant the account
   // existed). Excluding them beats reporting known-wrong percentages.
   const records = all.filter((r) => {
-    const cp = r.checkpoints['15m'] || r.checkpoints['1h'];
+    const cp = r.checkpoints['15m'] || r.checkpoints['5m'] || r.checkpoints['1h'];
     return !cp || new Date(cp.checkedAt).getTime() >= CLASSIFIER_FIXED_AT;
   });
 
   // only records with a resolved 1h checkpoint can tell us anything
   const resolved = records.filter((r) => {
-    const cp = r.checkpoints['15m'] || r.checkpoints['1h'];
+    const cp = r.checkpoints['15m'] || r.checkpoints['5m'] || r.checkpoints['1h'];
     return cp && cp.status !== 'error';
   });
 
@@ -234,7 +235,7 @@ export function getLearningSummary() {
   const byReason = {};
   for (const r of resolved) {
     if (!r.filterReasons) continue;
-    const status = (r.checkpoints['15m'] || r.checkpoints['1h']).status;
+    const status = (r.checkpoints['15m'] || r.checkpoints['5m'] || r.checkpoints['1h']).status;
     const seen = new Set();
     for (const reason of r.filterReasons) {
       const cat = categorizeReason(reason);
@@ -247,7 +248,7 @@ export function getLearningSummary() {
   }
 
   const filterCalibration = Object.entries(byReason)
-    .filter(([, o]) => o.total >= 3) // don't draw conclusions from one or two samples
+    .filter(([, o]) => o.total >= 2) // still low, but flagged as low-confidence in the UI
     .map(([reason, o]) => ({
       reason,
       total: o.total,
@@ -262,7 +263,7 @@ export function getLearningSummary() {
   for (const r of resolved) {
     if (r.decision !== 'hold' && r.decision !== 'fail') continue;
     if (!thesisCalibration[r.decision]) thesisCalibration[r.decision] = emptyOutcome();
-    const status = (r.checkpoints['15m'] || r.checkpoints['1h']).status;
+    const status = (r.checkpoints['15m'] || r.checkpoints['5m'] || r.checkpoints['1h']).status;
     thesisCalibration[r.decision][status] = (thesisCalibration[r.decision][status] || 0) + 1;
     thesisCalibration[r.decision].total++;
   }
@@ -284,9 +285,24 @@ export function getLearningSummary() {
     .slice(0, 6)
     .map(([flag, count]) => ({ flag, count }));
 
+  // How close the next batch of labels is, so the panel can show progress
+  // rather than an unchanging "nothing to report".
+  const now = Date.now();
+  let awaiting = 0;
+  let soonestMs = null;
+  for (const r of records) {
+    const has = r.checkpoints['5m'] || r.checkpoints['15m'];
+    if (has) continue;
+    awaiting++;
+    const due = new Date(r.evaluatedAt).getTime() + 5 * 60 * 1000 - now;
+    if (due > 0 && (soonestMs === null || due < soonestMs)) soonestMs = due;
+  }
+
   return {
     totalRecords: records.length,
     resolvedRecords: resolved.length,
+    awaitingCheckpoint: awaiting,
+    nextCheckpointInSeconds: soonestMs === null ? null : Math.round(soonestMs / 1000),
     filterCalibration,
     thesisCalibration,
     topRugcheckFlags,

@@ -431,8 +431,22 @@ async function refreshLearning() {
     const d = await fetchJson('/learning');
     const body = el('learningBody');
 
+    const nextIn =
+      d.nextCheckpointInSeconds === null || d.nextCheckpointInSeconds === undefined
+        ? null
+        : d.nextCheckpointInSeconds > 60
+          ? `${Math.round(d.nextCheckpointInSeconds / 60)}m`
+          : `${d.nextCheckpointInSeconds}s`;
+
+    const progress = `<div class="rule-row" style="margin-bottom:12px">
+        <span>${d.totalRecords} evaluated &middot; ${d.resolvedRecords} with outcomes &middot; ${d.awaitingCheckpoint || 0} awaiting</span>
+        <span>${nextIn ? `next result in ${nextIn}` : 'checking…'}</span>
+      </div>`;
+
     if (!d.resolvedRecords) {
-      body.innerHTML = `<div class="empty-note">${d.totalRecords} evaluated, 0 with completed 1h follow-ups yet &mdash; nothing conclusive to report</div>`;
+      body.innerHTML =
+        progress +
+        `<div class="empty-note">&gt; first outcomes land 5 minutes after each evaluation ... _</div>`;
       return;
     }
 
@@ -454,9 +468,9 @@ async function refreshLearning() {
       .map((f) => `<span class="insights-chip">${escapeHtml(f.flag)}: ${f.count}</span>`)
       .join('');
 
-    body.innerHTML = `
+    body.innerHTML = progress + `
       <div>
-        <div class="insights-row-label">is each filter earning its place? (${d.resolvedRecords} resolved)</div>
+        <div class="insights-row-label">is each filter earning its place? (${d.resolvedRecords} resolved${d.resolvedRecords < 20 ? ' — low confidence, small sample' : ''})</div>
         ${calib || '<div class="empty-note">not enough samples per reason yet</div>'}
       </div>
       <div>
