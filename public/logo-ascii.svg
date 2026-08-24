@@ -1,0 +1,13 @@
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pump Trade ASCII logo">
+  <style>
+    .a { font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+         font-size: 20px; letter-spacing: 1px; white-space: pre; }
+    .top { fill: #6EE7A8; }
+    .bot { fill: #5CC8E0; }
+  </style>
+  <text class="a top" x="60" y="26" text-anchor="middle">╭───╮</text>
+  <text class="a top" x="60" y="47" text-anchor="middle">│◉ ◡│</text>
+  <text class="a top" x="60" y="68" text-anchor="middle">├───┤</text>
+  <text class="a bot" x="60" y="89" text-anchor="middle">│_╱‾│</text>
+  <text class="a bot" x="60" y="110" text-anchor="middle">╰───╯</text>
+</svg>
