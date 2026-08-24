@@ -55,6 +55,7 @@ async function fetchJson(path) {
 let lastTickAt = null;
 let scanIntervalMs = 60000;
 let latestJournalEntry = null;
+let livePositionMap = {};
 
 async function refreshStatus() {
   try {
@@ -94,6 +95,9 @@ async function refreshStatus() {
     unrealizedEl.style.color = unrealized > 0 ? 'var(--hold)' : unrealized < 0 ? 'var(--fail)' : 'var(--fg)';
 
     // The Curve panel
+    livePositionMap = {};
+    for (const lp of status.livePositions || []) livePositionMap[lp.mintAddress] = lp;
+
     const activity = status.scanActivity || {};
     const minMc = status.minMarketCapUsd || 10000;
 
@@ -159,7 +163,20 @@ async function refreshPositions() {
       const tokenLink = p.mintAddress
         ? `<a class="verify-link" href="https://pump.fun/coin/${p.mintAddress}" target="_blank" rel="noopener">chart&nearr;</a>`
         : '';
-      li.innerHTML = `<span>$${escapeHtml(p.symbol)}${entryTx}${tokenLink}</span><span>${p.entrySolAmount} SOL</span>`;
+
+      const live = livePositionMap[p.mintAddress];
+      let pnlHtml = `<span>${p.entrySolAmount} SOL</span>`;
+      if (live && live.pnlPercent !== undefined) {
+        const up = live.pnlPercent >= 0;
+        pnlHtml = `<span style="color:${up ? 'var(--hold)' : 'var(--fail)'}">${up ? '+' : ''}${live.pnlPercent.toFixed(1)}%</span>`;
+      }
+
+      const sub = live
+        ? `<div style="font-size:0.66rem;color:var(--muted);margin-top:3px">${p.entrySolAmount} SOL in &middot; now ${fmtUsd(live.currentValueUsd)} &middot; held ${live.minutesHeld.toFixed(0)}m${live.tookFirstProfit ? ' &middot; half out' : ''}</div>`
+        : '';
+
+      li.style.display = 'block';
+      li.innerHTML = `<div style="display:flex;justify-content:space-between"><span>$${escapeHtml(p.symbol)}${entryTx}${tokenLink}</span>${pnlHtml}</div>${sub}`;
       list.appendChild(li);
     }
   } catch (err) {

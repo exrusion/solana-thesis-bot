@@ -107,6 +107,7 @@ async function manageOpenPositions() {
 
   let unrealizedPnlUsd = 0;
   let openPositionsValueUsd = 0;
+  const livePositions = [];
 
   for (const pos of open) {
     let currentPriceUsd = null;
@@ -126,12 +127,32 @@ async function manageOpenPositions() {
 
     if (currentPriceUsd === null) continue; // no fresh price this tick — try again next tick
 
-    const entryValueUsd = pos.entryPriceUsd > 0 ? pos.entrySolAmount * (solUsd || 0) : 0;
-    const currentValueUsd = pos.entryPriceUsd > 0 ? (currentPriceUsd / pos.entryPriceUsd) * entryValueUsd : 0;
-    unrealizedPnlUsd += currentValueUsd - entryValueUsd;
+    // Value the position from the tokens actually held on-chain, not from
+    // an entry-price ratio — that's the only figure that reflects reality
+    // after partial exits or slippage.
+    const heldRaw = await getTokenBalanceRaw(pos.mintAddress);
+    const heldTokens = heldRaw ? Number(heldRaw) / 1e6 : 0; // pump.fun tokens use 6 decimals
+    const currentValueUsd = heldTokens * currentPriceUsd;
+
+    const costBasisUsd =
+      (pos.entrySolAmount - (pos.partialExitSol || 0)) * (solUsd || 0);
+    unrealizedPnlUsd += currentValueUsd - costBasisUsd;
     openPositionsValueUsd += currentValueUsd;
 
     const pnlPercent = ((currentPriceUsd - pos.entryPriceUsd) / pos.entryPriceUsd) * 100;
+
+    livePositions.push({
+      mintAddress: pos.mintAddress,
+      symbol: pos.symbol,
+      entrySolAmount: pos.entrySolAmount,
+      entrySignature: pos.entrySignature,
+      pnlPercent,
+      currentValueUsd,
+      costBasisUsd,
+      heldTokens,
+      tookFirstProfit: pos.tookFirstProfit === true,
+      minutesHeld: (Date.now() - new Date(pos.openedAt).getTime()) / 60000,
+    });
     const heldMinutes = (Date.now() - new Date(pos.openedAt).getTime()) / 60000;
     const remainingRaw = pos.remainingTokenRaw ?? pos.tokenAmountRaw;
     const tookFirstProfit = pos.tookFirstProfit === true;
@@ -217,7 +238,7 @@ async function manageOpenPositions() {
     }
   }
 
-  updateScanStats({ unrealizedPnlUsd, openPositionsValueUsd });
+  updateScanStats({ unrealizedPnlUsd, openPositionsValueUsd, livePositions });
 }
 
 async function scanForNewPositions() {

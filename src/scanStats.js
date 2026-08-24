@@ -11,6 +11,7 @@ let stats = {
   startedAt: new Date().toISOString(),
   unrealizedPnlUsd: 0,
   openPositionsValueUsd: 0,
+  livePositions: [],
   lastUpdatedAt: null,
 };
 

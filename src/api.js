@@ -52,6 +52,8 @@ app.get('/status', async (req, res) => {
     startedAt: activity.startedAt,
     unrealizedPnlUsd: activity.unrealizedPnlUsd,
     openPositionsValueUsd: activity.openPositionsValueUsd,
+    livePositions: activity.livePositions || [],
+    solUsdPrice: solUsd || null,
     totalEquityUsd: solBalance * (solUsd || 0) + (activity.openPositionsValueUsd || 0),
     scanActivity: activity,
   });
