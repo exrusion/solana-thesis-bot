@@ -7,6 +7,7 @@ import { fetchTokenMetadata } from './tokenMetadata.js';
 import { passesSafetyFilters } from './safetyFilters.js';
 import { generateThesis } from './thesisEngine.js';
 import { buyToken, sellToken } from './jupiter.js';
+import { getTokenBalanceRaw } from './rpc.js';
 import { startPumpFunListener, drainFreshMints, getListenerStats } from './pumpfunListener.js';
 import { recordEvaluation, processDueCheckpoints } from './outcomeTracker.js';
 import { updateScanStats, incrementTickCount } from './scanStats.js';
@@ -149,18 +150,32 @@ async function manageOpenPositions() {
 
     if (!action) continue;
 
+    // Always sell against the wallet's REAL balance. The stored amount
+    // came from a buy quote, and slippage means we usually hold slightly
+    // less than quoted — selling the quoted figure fails simulation.
+    const actualRaw = await getTokenBalanceRaw(pos.mintAddress);
+    if (actualRaw === null || actualRaw === '0') {
+      console.error(`[exit] ${pos.symbol}: wallet holds no balance for this mint — closing position without a sell`);
+      closePosition(pos.mintAddress, {
+        exitPriceUsd: currentPriceUsd,
+        exitSignature: null,
+        realizedPnlSol: -(pos.entrySolAmount - (pos.partialExitSol || 0)),
+      });
+      continue;
+    }
+
     const sellRaw =
       action.type === 'partial'
-        ? Math.floor(Number(remainingRaw) / 2).toString()
-        : remainingRaw;
+        ? (BigInt(actualRaw) / 2n).toString()
+        : actualRaw;
 
-    console.log(`[exit] ${pos.symbol} — ${action.label}`);
+    console.log(`[exit] ${pos.symbol} — ${action.label} (selling ${sellRaw} of ${actualRaw} held)`);
     try {
       const result = await sellToken(pos.mintAddress, sellRaw);
       const exitSol = Number(result.outAmount) / 1e9;
 
       if (action.type === 'partial') {
-        const leftover = (BigInt(remainingRaw) - BigInt(sellRaw)).toString();
+        const leftover = (BigInt(actualRaw) - BigInt(sellRaw)).toString();
         updatePosition(pos.mintAddress, {
           remainingTokenRaw: leftover,
           tookFirstProfit: true,

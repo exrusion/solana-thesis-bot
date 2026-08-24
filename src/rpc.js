@@ -10,6 +10,28 @@ export const connection = new Connection(config.heliusRpcUrl, {
 export const wallet = Keypair.fromSecretKey(bs58.decode(config.walletPrivateKey));
 
 /**
+ * The ACTUAL token balance held by the wallet, in raw base units.
+ * Never trust a buy quote's outAmount for this — slippage means the
+ * amount actually received is usually less than quoted, and trying to
+ * sell more than you hold fails simulation every time.
+ */
+export async function getTokenBalanceRaw(mintAddress) {
+  try {
+    const res = await connection.getParsedTokenAccountsByOwner(wallet.publicKey, {
+      mint: new PublicKey(mintAddress),
+    });
+    let total = 0n;
+    for (const acc of res.value) {
+      total += BigInt(acc.account.data.parsed.info.tokenAmount.amount);
+    }
+    return total.toString();
+  } catch (err) {
+    console.error(`[rpc] token balance lookup failed for ${mintAddress}: ${err.message}`);
+    return null;
+  }
+}
+
+/**
  * Checks the mint account for red flags:
  * - mintAuthority still set  -> devs can print more supply
  * - freezeAuthority still set -> devs can freeze your tokens

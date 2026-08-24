@@ -23,7 +23,7 @@ export async function buyToken(mintAddress, amountSol, slippageBps = 100) {
  * Executes a swap from the token back into SOL (a "sell").
  * amountTokens must be in the token's raw base units (not UI amount).
  */
-export async function sellToken(mintAddress, amountTokens, slippageBps = 150) {
+export async function sellToken(mintAddress, amountTokens, slippageBps = 800) {
   return executeSwap(mintAddress, SOL_MINT, amountTokens, slippageBps);
 }
 
@@ -38,13 +38,19 @@ async function executeSwap(inputMint, outputMint, amount, slippageBps) {
   });
   const quote = quoteRes.data;
 
-  const swapRes = await axios.post(SWAP_URL, {
-    quoteResponse: quote,
-    userPublicKey: wallet.publicKey.toBase58(),
-    wrapAndUnwrapSol: true,
-    dynamicComputeUnitLimit: true,
-    prioritizationFeeLamports: 'auto',
-  });
+  let swapRes;
+  try {
+    swapRes = await axios.post(SWAP_URL, {
+      quoteResponse: quote,
+      userPublicKey: wallet.publicKey.toBase58(),
+      wrapAndUnwrapSol: true,
+      dynamicComputeUnitLimit: true,
+      prioritizationFeeLamports: 'auto',
+    });
+  } catch (err) {
+    const detail = err.response?.data ? JSON.stringify(err.response.data) : err.message;
+    throw new Error(`jupiter swap build failed: ${detail}`);
+  }
 
   const swapTxBuf = Buffer.from(swapRes.data.swapTransaction, 'base64');
   const tx = VersionedTransaction.deserialize(swapTxBuf);
