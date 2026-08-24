@@ -48,6 +48,22 @@ html, body {
   gap: 10px;
 }
 
+.brand-ascii {
+  margin: 0;
+  font-family: var(--font-utility);
+  font-size: 9px;
+  line-height: 1.05;
+  letter-spacing: 0.5px;
+  white-space: pre;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 10px rgba(110, 231, 168, 0.25));
+  animation: logo-float 4s ease-in-out infinite alternate;
+  user-select: none;
+}
+
+.ascii-top { color: #6EE7A8; }
+.ascii-bot { color: #5CC8E0; }
+
 .brand-logo {
   width: 44px;
   height: 44px;
@@ -623,5 +639,21 @@ html, body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pulse-line span, .live-dot, .brand-logo { animation: none; }
+  .pulse-line span, .live-dot, .brand-ascii {
+  margin: 0;
+  font-family: var(--font-utility);
+  font-size: 9px;
+  line-height: 1.05;
+  letter-spacing: 0.5px;
+  white-space: pre;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 10px rgba(110, 231, 168, 0.25));
+  animation: logo-float 4s ease-in-out infinite alternate;
+  user-select: none;
+}
+
+.ascii-top { color: #6EE7A8; }
+.ascii-bot { color: #5CC8E0; }
+
+.brand-logo { animation: none; }
 }
