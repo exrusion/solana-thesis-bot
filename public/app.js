@@ -497,6 +497,68 @@ function initTabs() {
   });
 }
 
+async function initAsk() {
+  const select = el('askModel');
+  const input = el('askInput');
+  const send = el('askSend');
+  const thread = el('askThread');
+
+  try {
+    const { models, default: def } = await fetchJson('/ask/models');
+    select.innerHTML = Object.entries(models)
+      .map(([id, label]) => `<option value="${id}"${id === def ? ' selected' : ''}>${escapeHtml(label)}</option>`)
+      .join('');
+  } catch (err) {
+    select.innerHTML = '<option>default model</option>';
+  }
+
+  function append(cls, text) {
+    const div = document.createElement('div');
+    div.className = `ask-msg ${cls}`;
+    div.textContent = text;
+    thread.appendChild(div);
+    thread.scrollTop = thread.scrollHeight;
+    return div;
+  }
+
+  async function ask() {
+    const question = input.value.trim();
+    if (!question) return;
+
+    append('ask-q', '> ' + question);
+    input.value = '';
+    send.disabled = true;
+    const pending = append('ask-a', 'thinking ...');
+
+    try {
+      const res = await fetch('/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, model: select.value }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        pending.className = 'ask-msg ask-err';
+        pending.textContent = data.error;
+      } else {
+        pending.textContent = data.answer;
+      }
+    } catch (err) {
+      pending.className = 'ask-msg ask-err';
+      pending.textContent = 'Request failed — try again.';
+    } finally {
+      send.disabled = false;
+      input.focus();
+    }
+  }
+
+  send.addEventListener('click', ask);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') ask();
+  });
+}
+
+initAsk();
 initTabs();
 buildPulseBars();
 refreshAll();

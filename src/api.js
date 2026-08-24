@@ -15,12 +15,15 @@ import { getOutcomes, getInsightsSummary, getLearningSummary } from './outcomeTr
 import { getScanStats } from './scanStats.js';
 import { getRecentLogs } from './logCapture.js';
 import { getModelStatus } from './mlModel.js';
+import { askQuestion, ALLOWED_MODELS } from './askEngine.js';
 import { getSolUsdPrice } from './bondingCurve.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 app.use(cors());
+app.use(express.json({ limit: '16kb' }));
+app.set('trust proxy', true);
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 app.get('/status', async (req, res) => {
@@ -76,6 +79,20 @@ app.get('/outcomes', (req, res) => {
 
 app.get('/insights', (req, res) => {
   res.json(getInsightsSummary());
+});
+
+app.get('/ask/models', (req, res) => {
+  res.json({ models: ALLOWED_MODELS, default: config.openRouterModel });
+});
+
+app.post('/ask', async (req, res) => {
+  const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip;
+  const result = await askQuestion({
+    question: req.body?.question,
+    model: req.body?.model,
+    ip,
+  });
+  res.status(result.error ? 429 : 200).json(result);
 });
 
 app.get('/model', (req, res) => {

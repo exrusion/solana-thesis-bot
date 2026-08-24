@@ -51,6 +51,7 @@
       <button class="tab" data-tab="theses">theses</button>
       <button class="tab" data-tab="trades">trades</button>
       <button class="tab" data-tab="data">data</button>
+      <button class="tab" data-tab="ask">ask</button>
       <button class="tab" data-tab="logs">logs</button>
     </nav>
 
@@ -151,6 +152,26 @@
         <div class="empty-note journal-empty" id="journalEmpty">No entries yet. The bot is watching.</div>
         <ol class="journal-list" id="journalList"></ol>
 
+        </div>
+
+        <div class="pane" data-pane="ask" hidden>
+        <div class="panel-title" style="margin: 0 0 12px;">ask the bot</div>
+        <div class="insights-card">
+          <div class="insights-note">
+            Ask about any decision it has made &mdash; why it skipped something, why
+            it bought, how a trade went. It answers only from its own records, and
+            won't give trading advice. Limited to 8 questions per hour.
+          </div>
+          <div class="ask-controls">
+            <select id="askModel" class="ask-select"></select>
+          </div>
+          <div id="askThread" class="ask-thread"></div>
+          <div class="ask-input-row">
+            <input id="askInput" class="ask-input" type="text" maxlength="500"
+                   placeholder="why did it skip LEEK?" />
+            <button id="askSend" class="ask-send">send</button>
+          </div>
+        </div>
         </div>
 
         <div class="pane" data-pane="logs" hidden>
