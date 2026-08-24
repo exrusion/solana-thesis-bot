@@ -102,22 +102,44 @@ export async function passesSafetyFilters(pair) {
     reasons.push(holderSafety.reason);
   }
 
-  // RugCheck's ML-based scoring — a much broader signal set than our own
-  // basic checks (LP locks, sniper/bundler wallets, metadata mutability,
-  // insider concentration, and more). A failed lookup is treated as
-  // "unknown," not "unsafe" — a third-party outage shouldn't halt trading.
-  const rugCheck = await getRugCheckReport(pair.mintAddress);
-  if (rugCheck) {
-    metrics.rugcheckScore = rugCheck.score;
-    metrics.rugcheckFlags = rugCheck.dangerRisks;
-    if (rugCheck.rugged) {
-      reasons.push('RugCheck flags this token as already rugged');
-    }
-    if (rugCheck.dangerRisks.length > 0) {
-      reasons.push(`RugCheck danger flags: ${rugCheck.dangerRisks.join(', ')}`);
-    }
-    if (rugCheck.score !== null && rugCheck.score >= config.maxRugcheckScore) {
-      reasons.push(`RugCheck risk score ${rugCheck.score} at/above maximum ${config.maxRugcheckScore}`);
+  // RugCheck. On pump.fun the contract itself is standardized — mint and
+  // freeze authority are always revoked and liquidity always sits in the
+  // curve — so those flags carry no information here. What RugCheck still
+  // knows that the curve cannot tell you is who deployed it and how the
+  // early wallets are related.
+  const CONTRACT_LEVEL_FLAGS = [
+    'LP Vault unlocked',
+    'Mint Authority',
+    'Freeze Authority',
+    'Low Liquidity',
+    'Low amount of LP Providers',
+  ];
+
+  if (config.rugcheckMode !== 'off') {
+    const rugCheck = await getRugCheckReport(pair.mintAddress);
+    if (rugCheck) {
+      metrics.rugcheckScore = rugCheck.score;
+      metrics.rugcheckFlags = rugCheck.dangerRisks;
+
+      const behavioralOnly = config.rugcheckMode === 'behavioral';
+      const actionableFlags = behavioralOnly
+        ? rugCheck.dangerRisks.filter(
+            (f) => !CONTRACT_LEVEL_FLAGS.some((c) => f.toLowerCase().includes(c.toLowerCase()))
+          )
+        : rugCheck.dangerRisks;
+
+      if (rugCheck.rugged) {
+        reasons.push('RugCheck flags this token as already rugged');
+      }
+      if (actionableFlags.length > 0) {
+        reasons.push(`RugCheck flags: ${actionableFlags.join(', ')}`);
+      }
+      // The numeric score is heavily driven by the contract-level items
+      // above, so in behavioral mode it would double-penalise things we
+      // just decided to ignore.
+      if (!behavioralOnly && rugCheck.score !== null && rugCheck.score >= config.maxRugcheckScore) {
+        reasons.push(`RugCheck risk score ${rugCheck.score} at/above maximum ${config.maxRugcheckScore}`);
+      }
     }
   }
 

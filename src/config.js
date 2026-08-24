@@ -49,6 +49,13 @@ export const config = {
   takeProfitPercent1: parseFloat(process.env.TAKE_PROFIT_PCT_1 || '40'),
   takeProfitPercent2: parseFloat(process.env.TAKE_PROFIT_PCT_2 || '100'),
   maxHoldMinutes: parseFloat(process.env.MAX_HOLD_MINUTES || '20'),
+  // 'behavioral' (default) — ignore contract-level flags that pump.fun
+  //   standardizes anyway (LP vault, mint/freeze authority) and keep only
+  //   signals the curve cannot tell you: creator rug history, insider and
+  //   bundler clustering, sniper concentration.
+  // 'full' — act on every RugCheck flag and the numeric score.
+  // 'off'  — skip RugCheck entirely.
+  rugcheckMode: process.env.RUGCHECK_MODE || 'behavioral',
   maxRugcheckScore: parseFloat(process.env.MAX_RUGCHECK_SCORE || '50'),
 
   scanIntervalMs: parseInt(process.env.SCAN_INTERVAL_MS || '60000', 10),
