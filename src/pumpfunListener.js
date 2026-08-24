@@ -17,8 +17,8 @@ const BLOCKED_MINTS = new Set([
   'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', // USDT
 ]);
 
-const MAX_QUEUE = 150; // per-queue cap
-const PROCESS_INTERVAL_MS = 1200;
+const MAX_QUEUE = 400; // was saturating at 150, dropping most trade events
+const PROCESS_INTERVAL_MS = 400; // 1 per 1.2s could not keep up with the event rate
 const MAX_RETRIES = 5;
 const RETRY_DELAY_MS = 600;
 

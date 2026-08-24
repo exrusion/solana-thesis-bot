@@ -22,7 +22,7 @@ import {
 } from './positions.js';
 
 const MAX_PENDING_FRESH_MINTS = 500;
-const MAX_LOOKUPS_PER_TICK = 25;
+const MAX_LOOKUPS_PER_TICK = 80; // ticks were finishing in ~9s of 60s — plenty of headroom
 const FRESH_MINT_EXPIRY_MS = 2 * 60 * 60 * 1000; // real momentum can take 30+ min to build
 
 let pendingFreshMints = []; // { mintAddress, firstSeenAt, lastRealSolReservesSol } — persists across ticks
@@ -293,7 +293,10 @@ async function scanForNewPositions() {
       stillPending.push(entry);
     }
   }
-  pendingFreshMints = [...stillPending, ...pendingFreshMints.slice(MAX_LOOKUPS_PER_TICK)];
+  // Tokens we just checked go to the BACK, not the front. Putting them
+  // first meant slice(0, N) grabbed the same N every tick and the rest of
+  // the pool was never examined at all.
+  pendingFreshMints = [...pendingFreshMints.slice(MAX_LOOKUPS_PER_TICK), ...stillPending];
 
   const candidateMap = new Map();
   for (const pair of freshCandidates) {
@@ -303,7 +306,7 @@ async function scanForNewPositions() {
 
   console.log(`[scan] ${candidates.length} candidates ready for evaluation this tick`);
   console.log(
-    `[fresh-mints] pending: ${pendingFreshMints.length} | resolved (session total): ${totalFreshResolved} | given up (session total): ${totalFreshGivenUp}`
+    `[fresh-mints] pending: ${pendingFreshMints.length} | checked this tick: ${toCheck.length} | resolved (session total): ${totalFreshResolved} | given up (session total): ${totalFreshGivenUp}`
   );
   const listenerStats = getListenerStats();
   console.log(
