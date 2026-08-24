@@ -133,6 +133,45 @@ html, body {
   .stats-bar { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--panel-border);
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-family: var(--font-utility);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.tab:hover { color: var(--fg); }
+
+.tab.active {
+  color: var(--pulse);
+  border-bottom-color: var(--pulse);
+}
+
+.pane[hidden] { display: none; }
+
+/* the left column is only meaningful on the live tab */
+.curve-col.dimmed { display: none; }
+
+@media (max-width: 820px) {
+  .tab { padding: 9px 11px; font-size: 0.7rem; }
+}
+
 /* Trade history */
 .trade-row {
   border-bottom: 1px solid var(--panel-border);

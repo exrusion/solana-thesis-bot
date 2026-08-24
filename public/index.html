@@ -46,6 +46,14 @@
       <div class="stat"><div class="stat-label">unrealized p&amp;l</div><div class="stat-value" id="statUnrealized">&mdash;</div></div>
     </section>
 
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="live">live</button>
+      <button class="tab" data-tab="theses">theses</button>
+      <button class="tab" data-tab="trades">trades</button>
+      <button class="tab" data-tab="data">data</button>
+      <button class="tab" data-tab="logs">logs</button>
+    </nav>
+
     <main class="layout">
       <aside class="curve-col">
         <div class="panel-title">the curve</div>
@@ -82,19 +90,26 @@
       </aside>
 
       <section class="feed-col">
+        <div class="pane" data-pane="live">
         <div class="now-block">
           <div class="panel-title">now</div>
           <div class="now-text" id="nowText">the bot is watching.</div>
         </div>
 
-        <div class="panel-title" style="margin: 22px 0 12px;">trade history</div>
+        </div>
+
+        <div class="pane" data-pane="trades" hidden>
+        <div class="panel-title" style="margin: 0 0 12px;">trade history</div>
         <div class="insights-card">
           <div id="historyBody">
             <div class="empty-note">&gt; no closed trades yet ... _</div>
           </div>
         </div>
 
-        <div class="panel-title" style="margin: 22px 0 12px;">what the data shows</div>
+        </div>
+
+        <div class="pane" data-pane="data" hidden>
+        <div class="panel-title" style="margin: 0 0 12px;">what the data shows</div>
         <div class="insights-card">
           <div class="insights-note">
             Patterns from what's been evaluated so far — not the AI learning on its own.
@@ -119,12 +134,19 @@
           </div>
         </div>
 
-        <div class="panel-title" style="margin: 22px 0 12px;">its own theses</div>
+        </div>
+
+        <div class="pane" data-pane="theses" hidden>
+        <div class="panel-title" style="margin: 0 0 12px;">its own theses</div>
         <div class="empty-note journal-empty" id="journalEmpty">No entries yet. The bot is watching.</div>
         <ol class="journal-list" id="journalList"></ol>
 
-        <div class="vital-label" style="margin: 28px 0 10px;">system logs</div>
+        </div>
+
+        <div class="pane" data-pane="logs" hidden>
+        <div class="vital-label" style="margin: 0 0 10px;">system logs</div>
         <div class="logs-box" id="logsBox"></div>
+        </div>
       </section>
     </main>
   </div>

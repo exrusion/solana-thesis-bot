@@ -440,6 +440,26 @@ async function refreshAll() {
   await Promise.all([refreshStatus(), refreshPositions(), refreshLogs(), refreshInsights(), refreshLearning(), refreshHistory()]);
 }
 
+function initTabs() {
+  const tabs = document.querySelectorAll('.tab');
+  const panes = document.querySelectorAll('.pane');
+  const sidebar = document.querySelector('.curve-col');
+
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.tab;
+      tabs.forEach((t) => t.classList.toggle('active', t === tab));
+      panes.forEach((p) => {
+        p.hidden = p.dataset.pane !== target;
+      });
+      // the curve/wallet column describes live state, so it only belongs
+      // on the live tab — everywhere else it just steals width
+      if (sidebar) sidebar.classList.toggle('dimmed', target !== 'live');
+    });
+  });
+}
+
+initTabs();
 buildPulseBars();
 refreshAll();
 setInterval(refreshAll, REFRESH_MS);
