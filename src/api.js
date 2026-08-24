@@ -16,6 +16,7 @@ import { getScanStats } from './scanStats.js';
 import { getRecentLogs } from './logCapture.js';
 import { getModelStatus } from './mlModel.js';
 import { askQuestion, ALLOWED_MODELS } from './askEngine.js';
+import { getCommitments, getCommitmentStats, verifyAll, sha256 } from './commitment.js';
 import { getSolUsdPrice } from './bondingCurve.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -93,6 +94,26 @@ app.post('/ask', async (req, res) => {
     ip,
   });
   res.status(result.error ? 429 : 200).json(result);
+});
+
+app.get('/proof.json', (req, res) => {
+  res.json({
+    ...getCommitmentStats(),
+    tradingWallet: wallet.publicKey.toBase58(),
+    commitments: getCommitments(parseInt(req.query.limit, 10) || 50),
+  });
+});
+
+app.get('/verify.json', async (req, res) => {
+  const result = await verifyAll(parseInt(req.query.limit, 10) || 25);
+  result.tradingWallet = wallet.publicKey.toBase58();
+  res.json(result);
+});
+
+app.post('/sha256', (req, res) => {
+  const text = req.body?.text;
+  if (typeof text !== 'string') return res.status(400).json({ error: 'send { text }' });
+  res.json({ sha256: sha256(text) });
 });
 
 app.get('/model', (req, res) => {

@@ -483,10 +483,40 @@ async function scanForNewPositions() {
     });
     console.log(`[thesis] ${pair.symbol} — ${thesis.decision}`);
 
+    // Seal the decision on chain BEFORE any order exists. A validator
+    // timestamps the hash, so the reasoning is provably older than the fill.
+    const sealed = await sealDecision({
+      mint: pair.mintAddress,
+      symbol: pair.symbol,
+      verdict: thesis.decision === 'hold' ? 'act' : 'pass',
+      reasoning: thesis.reasoning,
+      stats: {
+        marketCapUsd: stats.marketCapUsd,
+        liquidityUsd: stats.liquidityUsd,
+        recentTrades15m: stats.recentTrades,
+        topHolderPercent: stats.topHolderPercent,
+        top10Percent: stats.top10Percent,
+        buySellRatio: stats.buySellRatio,
+        poolPercent: stats.poolPercent,
+        rugcheckScore: stats.rugcheckScore,
+        mlSurvivalProbability: stats.mlSurvivalProbability,
+      },
+      rules: {
+        marketCapBandUsd: [config.minMarketCapUsd, config.maxMarketCapUsd],
+        minLiquidityUsd: config.minLiquidityUsd,
+        minRecentTrades15m: config.minRecentTrades,
+        maxTopHolderPercent: config.maxTopHolderPercent,
+        maxTop10Percent: config.maxTop10Percent,
+        positionSizeSol: config.maxPositionSizeSol,
+        stopLossPercent: config.stopLossPercent,
+      },
+    });
+
     if (thesis.decision === 'hold') {
       console.log(`[entry] ${pair.symbol} — thesis says hold, buying`);
       try {
         const result = await buyToken(pair.mintAddress, config.maxPositionSizeSol);
+        if (sealed) attachFill(sealed.id, result.signature);
         openPosition({
           mintAddress: pair.mintAddress,
           pairAddress: pair.pairAddress,

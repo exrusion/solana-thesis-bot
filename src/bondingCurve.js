@@ -75,12 +75,35 @@ const SOL_MINT_ADDRESS = 'So11111111111111111111111111111111111111112';
 export async function getRecentTradeCount(mintAddress, lookbackMinutes = 15) {
   try {
     const pda = findBondingCurveAddress(mintAddress);
-    const sigs = await connection.getSignaturesForAddress(pda, { limit: 200 });
-    if (!sigs.length) return { total: 0, recent: 0 };
+    const sigs = await connection.getSignaturesForAddress(pda, { limit: 400 });
+    if (!sigs.length) return { total: 0, recent: 0, priorRate: 0, acceleration: null };
 
-    const cutoff = Date.now() / 1000 - lookbackMinutes * 60;
-    const recent = sigs.filter((s) => s.blockTime && s.blockTime >= cutoff).length;
-    return { total: sigs.length, recent, hitLimit: sigs.length >= 200 };
+    const nowSec = Date.now() / 1000;
+    const windowSec = lookbackMinutes * 60;
+
+    const recent = sigs.filter((s) => s.blockTime && s.blockTime >= nowSec - windowSec).length;
+
+    // The token's own baseline: the three windows before the current one.
+    // Comparing against this instead of a fixed number is what separates
+    // "always quiet" from "waking up" — an old token going from 2 to 8 is
+    // accelerating hard even though 8 looks small in absolute terms.
+    const priorStart = nowSec - windowSec * 4;
+    const priorEnd = nowSec - windowSec;
+    const priorCount = sigs.filter(
+      (s) => s.blockTime && s.blockTime >= priorStart && s.blockTime < priorEnd
+    ).length;
+    const priorRate = priorCount / 3; // per window, averaged
+
+    // No prior history at all means a brand-new token, not a stalled one.
+    const acceleration = priorRate > 0 ? recent / priorRate : null;
+
+    return {
+      total: sigs.length,
+      recent,
+      priorRate,
+      acceleration,
+      hitLimit: sigs.length >= 400,
+    };
   } catch (err) {
     return null;
   }

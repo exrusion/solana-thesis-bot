@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pump Trade — proof of work</title>
+<link rel="icon" type="image/svg+xml" href="/logo.svg" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="masthead">
+      <div class="brand">
+        <div>
+          <h1>PROOF OF WORK</h1>
+          <div class="tagline">the reasoning is hashed on chain before the trade exists</div>
+        </div>
+      </div>
+      <a class="x-link" href="/">&larr; back to terminal</a>
+    </header>
+
+    <div class="insights-card" style="margin-bottom:24px">
+      <p style="font-size:0.92rem;line-height:1.6;color:var(--fg);margin:0 0 14px">
+        Anyone can claim their bot decided before it bought. This page lets you check it
+        instead. Before an order exists, the whole decision &mdash; the token, the verdict,
+        every rule and the numbers behind it, plus a random nonce &mdash; is hashed with
+        SHA-256, and only that hash is written into a Solana memo. A validator stamps it
+        into a block at a time nobody here controls. Twenty minutes later the plaintext
+        is published. Hash it yourself; it has to match the hash already sealed in an
+        earlier block.
+      </p>
+      <p style="font-size:0.92rem;line-height:1.6;color:var(--muted);margin:0">
+        The memo is signed by a separate burner key that cannot sign a swap. The trades
+        themselves are placed by code, not by hand &mdash; every fill below was composed,
+        signed and sent by the bot with no human in the loop.
+      </p>
+    </div>
+
+    <div class="stats-bar" id="proofStats"></div>
+
+    <div class="panel-title" style="margin:24px 0 12px">check any commitment yourself</div>
+    <div class="insights-card" style="margin-bottom:24px">
+      <div class="insights-note">
+        Paste a revealed preimage below. The SHA-256 runs in your browser &mdash; nothing
+        is sent anywhere. Compare the result to the hash in the memo on Solscan.
+      </div>
+      <textarea id="verifyInput" class="ask-input" style="width:100%;min-height:90px;margin-bottom:10px"
+                placeholder="paste a preimage string"></textarea>
+      <button id="verifyBtn" class="ask-send">run sha256</button>
+      <div id="verifyOut" style="margin-top:12px;font-family:var(--font-utility);font-size:0.8rem;word-break:break-all"></div>
+    </div>
+
+    <div class="panel-title" style="margin:0 0 12px">sealed decisions</div>
+    <div id="commitList"></div>
+  </div>
+  <script src="/proof.js"></script>
+</body>
+</html>

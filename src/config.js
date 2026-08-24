@@ -14,6 +14,12 @@ export const config = {
 
   walletPrivateKey: required('WALLET_PRIVATE_KEY'),
 
+  // Separate burner key that ONLY writes decision hashes to Solana memos.
+  // It never holds the book and cannot sign a swap — that separation is
+  // the point. Optional: without it the bot trades but cannot prove that
+  // its reasoning predated the fill.
+  memoPrivateKey: process.env.MEMO_PRIVATE_KEY || null,
+
   openRouterApiKey: required('OPENROUTER_API_KEY'),
   openRouterModel: process.env.OPENROUTER_MODEL || 'anthropic/claude-sonnet-4.5',
 
@@ -40,6 +46,11 @@ export const config = {
   // window. Unlike the old sampled buyer count, this is measured directly
   // per token rather than inferred from a global sample.
   minRecentTrades: parseInt(process.env.MIN_RECENT_TRADES || '12', 10),
+  // A token can also qualify by accelerating against its OWN baseline,
+  // which is how an established token reacting to news gets through
+  // without lowering the bar for tokens that are simply dead.
+  minAcceleration: parseFloat(process.env.MIN_ACCELERATION || '2.5'),
+  minTradesWhenAccelerating: parseInt(process.env.MIN_TRADES_WHEN_ACCELERATING || '5', 10),
   minUniqueBuyers: parseInt(process.env.MIN_UNIQUE_BUYERS || '0', 10),
   minBuySellRatio: parseFloat(process.env.MIN_BUY_SELL_RATIO || '1.2'),
   maxTopHolderPercent: parseFloat(process.env.MAX_TOP_HOLDER_PERCENT || '20'),

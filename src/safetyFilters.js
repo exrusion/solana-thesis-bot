@@ -44,9 +44,25 @@ export async function passesSafetyFilters(pair) {
   if (tradeCount) {
     metrics.recentTrades = tradeCount.recent;
     metrics.totalTradesSeen = tradeCount.total;
-    if (tradeCount.recent < config.minRecentTrades) {
+    metrics.priorRate = tradeCount.priorRate;
+    metrics.acceleration = tradeCount.acceleration;
+
+    // Two ways through: busy in absolute terms, or waking up relative to
+    // its own baseline. The second is how an older token with news gets
+    // considered instead of being rejected for not looking like a launch.
+    const busyEnough = tradeCount.recent >= config.minRecentTrades;
+    const wakingUp =
+      tradeCount.acceleration !== null &&
+      tradeCount.acceleration >= config.minAcceleration &&
+      tradeCount.recent >= config.minTradesWhenAccelerating;
+
+    if (!busyEnough && !wakingUp) {
+      const accel =
+        tradeCount.acceleration === null
+          ? 'no prior activity to compare'
+          : `${tradeCount.acceleration.toFixed(1)}x its own baseline, need ${config.minAcceleration}x`;
       reasons.push(
-        `${tradeCount.recent} transactions in the last 15min, need ${config.minRecentTrades}`
+        `${tradeCount.recent} transactions in the last 15min (need ${config.minRecentTrades}, or ${accel})`
       );
     }
   }
