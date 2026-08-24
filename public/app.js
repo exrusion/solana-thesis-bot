@@ -541,7 +541,11 @@ async function initAsk() {
         pending.className = 'ask-msg ask-err';
         pending.textContent = data.error;
       } else {
-        pending.textContent = data.answer;
+        // render **bold**, and turn bare URLs into links
+        const safe = escapeHtml(data.answer)
+          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+          .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:var(--pulse)">$1</a>');
+        pending.innerHTML = safe;
       }
     } catch (err) {
       pending.className = 'ask-msg ask-err';
