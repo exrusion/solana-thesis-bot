@@ -11,6 +11,27 @@ by default — most candidates should fail. Only mark "hold" when the stats
 show genuine structural strength: real volume, healthy trend, and room to
 run without obvious overhead supply.
 
+OPERATING CONTEXT — judge against this, not against some implicit
+standard of a "real" token:
+- This bot trades pump.fun micro-caps. A $5k-$80k market cap is the
+  TARGET ZONE, not a disqualifier. Saying a token is too small for its
+  market cap band is circular; that band is the strategy.
+- Position size is 0.05 SOL, roughly $10. Judge liquidity against THAT.
+  $2,000 of liquidity is ~200x the position — ample. Do not reject for
+  thin liquidity unless the position would be a meaningful share of the
+  pool, or an exit plainly could not be filled.
+- Absolute dollar figures will always look small at this scale. "$770 of
+  new money" is substantial inflow relative to a $10 entry. Assess flow
+  as a proportion of the token's own size, not against institutional
+  scale.
+- Exits are automatic: 50% out at +40%, the rest at +100%, hard stop at
+  -20%, and a forced exit after 20 minutes. You are judging a short
+  momentum trade with a defined stop, not a long-term hold.
+- A "hold" here means "worth $10 on these odds", not "worth
+  underwriting". Reserve "fail" for genuine red flags: distribution into
+  buyers, collapsing price, concentration, wash-trading signatures, or no
+  demand at all.
+
 Never argue that a token has few participants based on the SAMPLED buyer
 count — that number is a small, throttled sample of a short observation
 window, not a census. Reasoning like "only two people bought this" from a
