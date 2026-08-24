@@ -106,7 +106,10 @@ async function refreshStatus() {
 
     const pct = Math.min(100, ((activity.closestPendingMarketCapUsd || 0) / minMc) * 100);
     el('curveBarPct').textContent = `${fmtUsd(activity.closestPendingMarketCapUsd)} / ${fmtUsd(minMc)}`;
-    el('curveBarFill').style.width = `${pct}%`;
+    const CELLS = 20;
+    const filled = Math.round((pct / 100) * CELLS);
+    el('curveBarAscii').textContent =
+      '[' + '▓'.repeat(filled) + '░'.repeat(CELLS - filled) + '] ' + pct.toFixed(0) + '%';
 
     const curveList = el('curveList');
     const top = activity.topPending || [];
@@ -120,9 +123,9 @@ async function refreshStatus() {
         latestJournalEntry.type === 'thesis'
           ? latestJournalEntry.thesis?.reasoning?.[0]
           : (latestJournalEntry.reasons || [])[0];
-      lastFiled.textContent = `$${latestJournalEntry.symbol} — ${snippet || '—'}`;
+      lastFiled.textContent = `> $${latestJournalEntry.symbol} — ${snippet || '—'}`;
     } else {
-      lastFiled.textContent = 'nothing filed yet';
+      lastFiled.textContent = '> nothing filed yet';
     }
 
     const nowText = el('nowText');
@@ -131,7 +134,7 @@ async function refreshStatus() {
         latestJournalEntry.type === 'thesis'
           ? latestJournalEntry.thesis?.reasoning?.[0]
           : (latestJournalEntry.reasons || [])[0];
-      nowText.textContent = snippet || 'the bot is watching.';
+      nowText.textContent = '> ' + (snippet || 'the bot is watching.');
     }
   } catch (err) {
     console.error('status refresh failed', err);

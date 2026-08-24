@@ -133,7 +133,26 @@ html, body {
   .stats-bar { grid-template-columns: repeat(2, 1fr); }
 }
 
-/* Panel titles */
+/* ASCII progress meter */
+.curve-bar-ascii {
+  font-family: var(--font-utility);
+  font-size: 0.78rem;
+  letter-spacing: 1px;
+  color: var(--pulse);
+  margin-bottom: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* Panel titles get terminal-style brackets */
+.panel-title::before { content: "┌─ "; color: var(--panel-border); }
+.panel-title::after  { content: " ─────────"; color: var(--panel-border); }
+
+/* Journal entries read as terminal output */
+.entry-id::before { content: "▸ "; color: var(--pulse); }
+
+.log-line::before { content: ""; }
+
 .panel-title {
   font-family: var(--font-utility);
   font-size: 0.68rem;
@@ -177,21 +196,6 @@ html, body {
   font-size: 0.68rem;
   color: var(--muted);
   margin-bottom: 6px;
-}
-
-.curve-bar {
-  height: 8px;
-  background: rgba(255,255,255,0.06);
-  border-radius: 4px;
-  overflow: hidden;
-  margin-bottom: 16px;
-}
-
-.curve-bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--pulse), var(--hold));
-  width: 0%;
-  transition: width 0.6s ease;
 }
 
 .curve-list {
