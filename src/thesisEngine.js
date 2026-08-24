@@ -88,7 +88,13 @@ Distinct real holders seen: ${stats.realHolderCount ?? 'unknown'}
 Unsold supply still in the bonding curve: ${stats.poolPercent !== undefined ? stats.poolPercent.toFixed(1) + '%' : 'unknown'} (this is the curve mechanism holding tokens nobody has bought yet — it is NOT a whale and will never dump; a high number just means the token is early)
 Unique buyers SAMPLED: ${stats.uniqueBuyers ?? 'none yet'} — CRITICAL: this is NOT the token's buyer count. We resolve only ~1 in 8 trade events, and only during the ~10 minutes we have been watching. The true figure is many times larger and unknown. Treat this as a rough floor, never as evidence that "only N people bought this". If real trade volume is present below, that is the far better signal of participation.
 Buy/sell volume ratio (from the same sample): ${stats.buySellRatio !== undefined ? (stats.buySellRatio === Infinity ? 'all buys, no sells' : stats.buySellRatio.toFixed(2) + 'x') : 'unknown'}
-RugCheck risk score: ${stats.rugcheckScore ?? 'unknown'} (0-100, lower is safer)`;
+RugCheck risk score: ${stats.rugcheckScore ?? 'unknown'} (0-100, lower is safer)
+Our own trained model's survival estimate: ${
+        stats.mlSurvivalProbability === null || stats.mlSurvivalProbability === undefined
+          ? 'not available (model still gathering labelled outcomes)'
+          : (stats.mlSurvivalProbability * 100).toFixed(0) +
+            '% — a logistic regression trained on this bot\'s own past evaluations and what actually happened to them. Weigh it as one input, not a verdict.'
+      }`;
 
   const res = await axios.post(
     'https://openrouter.ai/api/v1/chat/completions',

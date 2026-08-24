@@ -450,6 +450,7 @@ async function scanForNewPositions() {
     // Without this the model reasons on "unknown" for its most important
     // structural signals.
     const stats = { ...pair, ageHours, ...(filterResult.metrics || {}) };
+    stats.mlSurvivalProbability = predictSurvival(stats);
     let thesis;
     try {
       thesis = await generateThesis(stats);
@@ -509,6 +510,7 @@ async function scanForNewPositions() {
 }
 
 let tickInProgress = false;
+let ticksSinceTrain = 0;
 
 async function tick() {
   if (tickInProgress) {
@@ -523,6 +525,12 @@ async function tick() {
   try {
     await manageOpenPositions();
     await scanForNewPositions();
+    ticksSinceTrain++;
+    if (ticksSinceTrain >= 10) {
+      ticksSinceTrain = 0;
+      trainModel(getAllOutcomeRecords());
+    }
+
     const outcomeResult = await processDueCheckpoints();
     if (outcomeResult.checked > 0 || outcomeResult.pending > 0) {
       console.log(

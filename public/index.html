@@ -109,6 +109,16 @@
         </div>
 
         <div class="pane" data-pane="data" hidden>
+        <div class="panel-title" style="margin: 0 0 12px;">trained model</div>
+        <div class="insights-card" style="margin-bottom: 22px;">
+          <div class="insights-note">
+            A logistic regression trained on this bot's own past evaluations and
+            what actually happened to those tokens. It retrains itself every 10
+            ticks and refuses to predict until it has enough labelled outcomes.
+          </div>
+          <div id="modelBody"><div class="empty-note">&gt; loading ... _</div></div>
+        </div>
+
         <div class="panel-title" style="margin: 0 0 12px;">what the data shows</div>
         <div class="insights-card">
           <div class="insights-note">

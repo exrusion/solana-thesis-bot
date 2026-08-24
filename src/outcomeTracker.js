@@ -10,6 +10,9 @@ const OUTCOMES_FILE = path.join(DATA_DIR, 'outcomes.json');
 // Follow-up windows — matches the intervals commonly used in published
 // memecoin-outcome datasets, so this data would be directly comparable.
 const CHECKPOINTS = [
+  // 15m matches the bot's own ~20 minute holding period and produces
+  // training labels fast enough to be useful.
+  { label: '15m', ms: 15 * 60 * 1000 },
   { label: '1h', ms: 60 * 60 * 1000 },
   { label: '6h', ms: 6 * 60 * 60 * 1000 },
   { label: '24h', ms: 24 * 60 * 60 * 1000 },
@@ -141,6 +144,10 @@ export async function processDueCheckpoints() {
   return { checked: toProcess.length, pending: due.length - toProcess.length };
 }
 
+export function getAllOutcomeRecords() {
+  return readOutcomes();
+}
+
 export function getOutcomes(limit = 100) {
   return readOutcomes().slice(0, limit);
 }
@@ -211,12 +218,15 @@ export function getLearningSummary() {
   // tokens were filed as alive, and "alive" only meant the account
   // existed). Excluding them beats reporting known-wrong percentages.
   const records = all.filter((r) => {
-    const cp = r.checkpoints['1h'];
+    const cp = r.checkpoints['15m'] || r.checkpoints['1h'];
     return !cp || new Date(cp.checkedAt).getTime() >= CLASSIFIER_FIXED_AT;
   });
 
   // only records with a resolved 1h checkpoint can tell us anything
-  const resolved = records.filter((r) => r.checkpoints['1h'] && r.checkpoints['1h'].status !== 'error');
+  const resolved = records.filter((r) => {
+    const cp = r.checkpoints['15m'] || r.checkpoints['1h'];
+    return cp && cp.status !== 'error';
+  });
 
   const emptyOutcome = () => ({ dead: 0, alive: 0, graduated: 0, total: 0 });
 
@@ -224,7 +234,7 @@ export function getLearningSummary() {
   const byReason = {};
   for (const r of resolved) {
     if (!r.filterReasons) continue;
-    const status = r.checkpoints['1h'].status;
+    const status = (r.checkpoints['15m'] || r.checkpoints['1h']).status;
     const seen = new Set();
     for (const reason of r.filterReasons) {
       const cat = categorizeReason(reason);
@@ -252,7 +262,7 @@ export function getLearningSummary() {
   for (const r of resolved) {
     if (r.decision !== 'hold' && r.decision !== 'fail') continue;
     if (!thesisCalibration[r.decision]) thesisCalibration[r.decision] = emptyOutcome();
-    const status = r.checkpoints['1h'].status;
+    const status = (r.checkpoints['15m'] || r.checkpoints['1h']).status;
     thesisCalibration[r.decision][status] = (thesisCalibration[r.decision][status] || 0) + 1;
     thesisCalibration[r.decision].total++;
   }

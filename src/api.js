@@ -14,6 +14,7 @@ import { connection, wallet } from './rpc.js';
 import { getOutcomes, getInsightsSummary, getLearningSummary } from './outcomeTracker.js';
 import { getScanStats } from './scanStats.js';
 import { getRecentLogs } from './logCapture.js';
+import { getModelStatus } from './mlModel.js';
 import { getSolUsdPrice } from './bondingCurve.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -75,6 +76,10 @@ app.get('/outcomes', (req, res) => {
 
 app.get('/insights', (req, res) => {
   res.json(getInsightsSummary());
+});
+
+app.get('/model', (req, res) => {
+  res.json(getModelStatus());
 });
 
 app.get('/learning', (req, res) => {

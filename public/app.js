@@ -346,6 +346,44 @@ async function refreshHistory() {
   }
 }
 
+async function refreshModel() {
+  try {
+    const m = await fetchJson('/model');
+    const body = el('modelBody');
+
+    if (!m.trained) {
+      body.innerHTML = `<div class="empty-note">&gt; ${m.sampleCount} of ${m.minSamples} labelled outcomes gathered &mdash; not predicting yet ... _</div>`;
+      return;
+    }
+
+    const bars = (m.weights || [])
+      .slice(0, 6)
+      .map((w) => {
+        const mag = Math.min(100, Math.abs(w.weight) * 40);
+        const up = w.weight >= 0;
+        return `<div class="rule-row">
+            <span>${escapeHtml(w.name.replace(/_/g, ' '))}</span>
+            <span style="display:flex;align-items:center;gap:8px">
+              <span style="display:inline-block;width:${mag}px;height:6px;border-radius:3px;background:${up ? 'var(--hold)' : 'var(--fail)'}"></span>
+              <span style="color:${up ? 'var(--hold)' : 'var(--fail)'}">${up ? '+' : ''}${w.weight.toFixed(2)}</span>
+            </span>
+          </div>`;
+      })
+      .join('');
+
+    body.innerHTML = `
+      <div class="rule-row"><span>trained on</span><span>${m.sampleCount} labelled outcomes</span></div>
+      <div class="rule-row"><span>training accuracy</span><span>${(m.trainAccuracy * 100).toFixed(1)}%</span></div>
+      <div class="rule-row"><span>survival base rate</span><span>${(m.positiveRate * 100).toFixed(0)}%</span></div>
+      <div class="rule-row"><span>last retrained</span><span>${fmtTime(m.trainedAt)}</span></div>
+      <div class="insights-row-label" style="margin-top:14px">what it weighs most (green = survival, red = death)</div>
+      ${bars}
+    `;
+  } catch (err) {
+    console.error('model refresh failed', err);
+  }
+}
+
 async function refreshInsights() {
   try {
     const data = await fetchJson('/insights');
@@ -437,7 +475,7 @@ async function refreshLearning() {
 
 async function refreshAll() {
   await refreshJournal(); // populate latestJournalEntry before status renders "now"/"last filed"
-  await Promise.all([refreshStatus(), refreshPositions(), refreshLogs(), refreshInsights(), refreshLearning(), refreshHistory()]);
+  await Promise.all([refreshStatus(), refreshPositions(), refreshLogs(), refreshInsights(), refreshLearning(), refreshHistory(), refreshModel()]);
 }
 
 function initTabs() {
