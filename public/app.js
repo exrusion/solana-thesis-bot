@@ -179,7 +179,7 @@ function renderEntry(entry) {
     ? `<div class="entry-stats">
         <span>mcap ${fmtUsd(entry.stats.marketCapUsd)}</span>
         <span>liq ${fmtUsd(entry.stats.liquidityUsd)}</span>
-        <span>growth ${entry.stats.priceChange1h?.toFixed(1)}%</span>
+        <span>growth ${entry.stats.priceChange1h === null || entry.stats.priceChange1h === undefined ? 'n/a' : entry.stats.priceChange1h.toFixed(1) + '%'}</span>
       </div>`
     : '';
 

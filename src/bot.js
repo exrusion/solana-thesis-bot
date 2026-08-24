@@ -90,6 +90,8 @@ async function buildBondingCurveCandidate(mintAddress, curve, solUsd, firstSeenA
     priceChange6h: growthPercent,
     priceChange24h: growthPercent,
     pairCreatedAt: firstSeenAt,
+    firstSeenAt,
+    observedOnly: true, // firstSeenAt is when WE noticed it, not when it launched
     url: `https://pump.fun/coin/${mintAddress}`,
   };
 }
@@ -255,11 +257,23 @@ async function scanForNewPositions() {
 
     if (curve && !curve.complete && solUsd) {
       const previous = entry.lastRealSolReservesSol;
-      const growthPercent =
-        previous && previous > 0
-          ? ((curve.realSolReservesSol - previous) / previous) * 100
-          : 0;
+      const hasBaseline = previous !== null && previous !== undefined && previous > 0;
+      // null, not 0 — "we have not measured this yet" is a completely
+      // different statement from "it did not grow", and reporting the
+      // second when we mean the first was causing false rejections.
+      const growthPercent = hasBaseline
+        ? ((curve.realSolReservesSol - previous) / previous) * 100
+        : null;
       entry.lastRealSolReservesSol = curve.realSolReservesSol;
+      if (!entry.firstMeasuredAt) entry.firstMeasuredAt = now;
+
+      // Never evaluate on the very first observation — without a prior
+      // reading there is no momentum signal at all, and the model reads
+      // the missing number as "momentum died".
+      if (!hasBaseline) {
+        stillPending.push(entry);
+        continue;
+      }
 
       const marketCapUsd = curve.marketCapSol * solUsd;
 

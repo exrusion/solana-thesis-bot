@@ -35,7 +35,11 @@ export async function generateThesis(stats) {
   const volumeLines = isBondingCurve
     ? `Trade volume: not available (still on bonding curve — no trade history yet)
 Real SOL committed to curve: $${stats.liquidityUsd.toFixed(0)}
-Growth in committed SOL since first seen: ${stats.priceChange1h.toFixed(1)}%`
+Growth in committed SOL since our previous reading: ${
+        stats.priceChange1h === null || stats.priceChange1h === undefined
+          ? 'not yet measurable'
+          : stats.priceChange1h.toFixed(1) + '%'
+      }`
     : `1h volume: $${stats.volume1h.toFixed(0)}
 6h volume: $${stats.volume6h.toFixed(0)}
 24h volume: $${stats.volume24h.toFixed(0)}
@@ -45,7 +49,9 @@ Growth in committed SOL since first seen: ${stats.priceChange1h.toFixed(1)}%`
 
   const userPrompt = `Token: $${stats.symbol}
 Stage: ${isBondingCurve ? 'still on pump.fun bonding curve (pre-graduation)' : 'graduated to AMM'}
-Age: ${stats.ageHours?.toFixed(1) ?? 'unknown'}h
+${stats.observedOnly
+    ? `Observed by this bot for: ${stats.ageHours !== null && stats.ageHours !== undefined ? (stats.ageHours * 60).toFixed(0) + ' minutes' : 'unknown'} (this is how long WE have been watching it, NOT the token's age — it may be far older, and a short window here says nothing bad about the token)`
+    : `Age: ${stats.ageHours?.toFixed(1) ?? 'unknown'}h`}
 Market cap: $${stats.marketCapUsd?.toFixed(0) ?? 'unknown'}
 Liquidity: $${stats.liquidityUsd.toFixed(0)}
 ${volumeLines}
