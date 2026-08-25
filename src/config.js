@@ -52,7 +52,11 @@ export const config = {
   minAcceleration: parseFloat(process.env.MIN_ACCELERATION || '2.5'),
   minTradesWhenAccelerating: parseInt(process.env.MIN_TRADES_WHEN_ACCELERATING || '5', 10),
   minUniqueBuyers: parseInt(process.env.MIN_UNIQUE_BUYERS || '0', 10),
-  minBuySellRatio: parseFloat(process.env.MIN_BUY_SELL_RATIO || '1.2'),
+  // Disabled by default. This ratio is derived from the global 1-in-8
+  // trade sample, which yields 0-2 trades per token — a ratio computed
+  // from that is noise, and it was rejecting tokens on it. Set above 0
+  // to re-enable.
+  minBuySellRatio: parseFloat(process.env.MIN_BUY_SELL_RATIO || '0'),
   maxTopHolderPercent: parseFloat(process.env.MAX_TOP_HOLDER_PERCENT || '20'),
   maxTop10Percent: parseFloat(process.env.MAX_TOP10_PERCENT || '45'),
   // Loosened deliberately so the untested buy/sell path finally executes.

@@ -397,6 +397,7 @@ async function scanForNewPositions() {
   });
 
   let passedCount = 0;
+  const funnel = {};
 
   for (const pair of candidates) {
     if (getOpenPositions().length >= config.maxConcurrentPositions) break;
@@ -404,6 +405,9 @@ async function scanForNewPositions() {
 
     const filterResult = await passesSafetyFilters(pair);
     if (!filterResult.passed) {
+      for (const stage of filterResult.failedStages || []) {
+        funnel[stage] = (funnel[stage] || 0) + 1;
+      }
       const permanent = isPermanentRejection(filterResult.reasons);
 
       // Transient failure: keep watching rather than discarding. Only the
@@ -545,7 +549,14 @@ async function scanForNewPositions() {
     }
   }
 
-  console.log(`[scan] ${passedCount} candidate(s) passed safety filters this tick`);
+  const funnelText = Object.entries(funnel)
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, v]) => `${k}:${v}`)
+    .join(' ');
+  console.log(
+    `[scan] ${passedCount} passed filters | rejected by — ${funnelText || 'nothing rejected'}`
+  );
+  updateScanStats({ rejectionFunnel: funnel });
 }
 
 let tickInProgress = false;

@@ -11,8 +11,21 @@ import { getRecentTradeCount } from './bondingCurve.js';
  */
 const ALLOWED_DEX_IDS = new Set(['pumpfun', 'pumpswap']);
 
+export const FILTER_STAGES = [
+  'wrong dex',
+  'market cap',
+  'too young',
+  'liquidity',
+  'activity',
+  'buy/sell ratio',
+  'mint authority',
+  'holder concentration',
+  'rugcheck',
+];
+
 export async function passesSafetyFilters(pair) {
   const reasons = [];
+  const failedStages = [];
 
   if (!ALLOWED_DEX_IDS.has(pair.dexId)) {
     reasons.push(`dexId "${pair.dexId}" is not pump.fun/PumpSwap — skipping`);
@@ -87,7 +100,7 @@ export async function passesSafetyFilters(pair) {
     if (config.minUniqueBuyers > 0 && trades.uniqueBuyers < config.minUniqueBuyers) {
       reasons.push(`${trades.uniqueBuyers} of ${config.minUniqueBuyers} sampled buyers`);
     }
-    if (trades.buySellRatio < config.minBuySellRatio) {
+    if (config.minBuySellRatio > 0 && trades.buySellRatio < config.minBuySellRatio) {
       reasons.push(`buy/sell volume ratio ${trades.buySellRatio.toFixed(2)}x below minimum ${config.minBuySellRatio}x`);
     }
     if (config.requireActivityIncreasing && !trades.activityIncreasing) {
@@ -116,7 +129,7 @@ export async function passesSafetyFilters(pair) {
   // network calls just to append more reasons to an already-doomed
   // candidate — that cost is what was pushing ticks past their interval.
   if (reasons.length > 0) {
-    return { passed: false, reasons, metrics };
+    return { passed: false, reasons, metrics, failedStages: ['wrong dex'] };
   }
 
   const mintSafety = await checkMintSafety(pair.mintAddress);
@@ -180,5 +193,19 @@ export async function passesSafetyFilters(pair) {
     }
   }
 
-  return { passed: reasons.length === 0, reasons, metrics };
+  for (const r of reasons) {
+    if (r.includes('is not pump.fun')) failedStages.push('wrong dex');
+    else if (r.includes('market cap $')) failedStages.push('market cap');
+    else if (r.includes('m old, minimum')) failedStages.push('too young');
+    else if (r.includes('liquidity $')) failedStages.push('liquidity');
+    else if (r.includes('transactions in the last')) failedStages.push('activity');
+    else if (r.includes('buy/sell volume ratio')) failedStages.push('buy/sell ratio');
+    else if (r.includes('authority')) failedStages.push('mint authority');
+    else if (r.includes('holder controls') || r.includes('holders control'))
+      failedStages.push('holder concentration');
+    else if (r.includes('RugCheck')) failedStages.push('rugcheck');
+    else failedStages.push('other');
+  }
+
+  return { passed: reasons.length === 0, reasons, metrics, failedStages };
 }

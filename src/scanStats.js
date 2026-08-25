@@ -12,6 +12,7 @@ let stats = {
   unrealizedPnlUsd: 0,
   openPositionsValueUsd: 0,
   livePositions: [],
+  rejectionFunnel: {},
   lastUpdatedAt: null,
 };
 
