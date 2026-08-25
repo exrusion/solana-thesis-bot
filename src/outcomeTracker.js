@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { config } from './config.js';
 import { fetchBondingCurveState, getSolUsdPrice } from './bondingCurve.js';
-import { getPairsForMint } from './dexscreener.js';
+import { getGraduatedPriceUsd } from './graduated.js';
 
 const DATA_DIR = path.resolve(config.dataDir);
 const OUTCOMES_FILE = path.join(DATA_DIR, 'outcomes.json');
@@ -73,13 +73,7 @@ async function fetchCurrentState(mintAddress, entrySnapshot) {
   // returns null. Checking curve?.complete on a null object silently yields
   // undefined and everything got filed as "alive" — hence 0 graduated.
   if (curve && curve.complete) {
-    const pair = await getPairsForMint(mintAddress);
-    return {
-      status: 'graduated',
-      marketCapUsd: pair?.marketCapUsd || 0,
-      liquidityUsd: pair?.liquidityUsd || 0,
-      priceUsd: pair?.priceUsd || 0,
-    };
+    return { status: 'graduated', marketCapUsd: 0, liquidityUsd: 0, priceUsd: (await getGraduatedPriceUsd(mintAddress)) || 0 };
   }
 
   if (curve && !curve.complete && solUsd) {
@@ -102,15 +96,10 @@ async function fetchCurrentState(mintAddress, entrySnapshot) {
   }
 
   // Curve unreadable: either it graduated and moved to an AMM, or it's gone.
-  const pair = await getPairsForMint(mintAddress);
-  if (pair) {
-    return {
-      status: 'graduated',
-      marketCapUsd: pair.marketCapUsd || 0,
-      liquidityUsd: pair.liquidityUsd || 0,
-      priceUsd: pair.priceUsd || 0,
-    };
-  }
+  // Curve unreadable and not marked complete: still routable means it
+  // migrated, otherwise it is gone.
+  const price = await getGraduatedPriceUsd(mintAddress);
+  if (price) return { status: 'graduated', marketCapUsd: 0, liquidityUsd: 0, priceUsd: price };
 
   return { status: 'dead', marketCapUsd: 0, liquidityUsd: 0, priceUsd: 0 };
 }

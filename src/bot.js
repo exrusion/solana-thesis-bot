@@ -1,7 +1,7 @@
 import './logCapture.js'; // must be first — captures every console.log/error from here on
 import './api.js'; // runs the API + serves the frontend in this same process
 import { config } from './config.js';
-import { getPairsForMint } from './dexscreener.js';
+import { getGraduatedTokenData, getGraduatedPriceUsd } from './graduated.js';
 import { fetchBondingCurveState, getSolUsdPrice } from './bondingCurve.js';
 import { fetchTokenMetadata } from './tokenMetadata.js';
 import { passesSafetyFilters } from './safetyFilters.js';
@@ -126,8 +126,9 @@ async function manageOpenPositions() {
       if (curve && !curve.complete && solUsd) {
         currentPriceUsd = curve.priceSolPerToken * solUsd;
       } else {
-        const pair = await getPairsForMint(pos.mintAddress);
-        if (pair) currentPriceUsd = pair.priceUsd;
+        // Position has graduated. Price comes from Jupiter, not an
+        // indexer — a stale price here means a missed stop-loss.
+        currentPriceUsd = await getGraduatedPriceUsd(pos.mintAddress);
       }
     } catch (err) {
       console.error(`[manage] failed to refresh ${pos.symbol}: ${err.message}`);
@@ -374,15 +375,38 @@ async function scanForNewPositions() {
       continue;
     }
 
-    // graduated off the curve, or bonding curve unreadable — try DexScreener by mint
-    const pair = await getPairsForMint(entry.mintAddress);
-    if (pair) {
-      pair.url = `https://pump.fun/coin/${entry.mintAddress}`; // always pump.fun, never DexScreener
-      freshCandidates.push(pair);
-      totalFreshResolved++;
-    } else {
-      stillPending.push(entry);
+    // Graduated to PumpSwap. Read price, supply and executable depth
+    // directly rather than waiting for an indexer to catch up — that lag
+    // is what made a live $52k token read as having no liquidity.
+    const grad = await getGraduatedTokenData(
+      entry.mintAddress,
+      config.maxPositionSizeSol,
+      solUsd
+    );
+
+    if (!grad) {
+      stillPending.push(entry); // not routable yet, keep watching
+      continue;
     }
+
+    const metadata = await fetchTokenMetadata(entry.mintAddress);
+    freshCandidates.push({
+      ...grad,
+      pairAddress: entry.mintAddress,
+      symbol: metadata?.symbol || `${entry.mintAddress.slice(0, 4)}…${entry.mintAddress.slice(-4)}`,
+      name: metadata?.name || null,
+      volume1h: 0,
+      volume6h: 0,
+      volume24h: 0,
+      priceChange1h: null,
+      priceChange6h: null,
+      priceChange24h: null,
+      pairCreatedAt: entry.firstSeenAt,
+      firstSeenAt: entry.firstSeenAt,
+      observedOnly: true,
+      url: `https://pump.fun/coin/${entry.mintAddress}`,
+    });
+    totalFreshResolved++;
   }
   // Tokens we just checked go to the BACK, not the front. Putting them
   // first meant slice(0, N) grabbed the same N every tick and the rest of

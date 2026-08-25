@@ -58,6 +58,10 @@ export async function generateThesis(stats) {
   // just a copy of liquidity. Showing it as "volume" would invite the
   // model to reason about a number that doesn't mean what it says.
   const isBondingCurve = stats.dexId === 'pumpfun';
+  const depthLine =
+    stats.priceImpactPct !== undefined && stats.priceImpactPct !== null
+      ? `\nExecutable depth: a ${(stats.priceImpactPct).toFixed(2)}% price impact on a probe 20x our position size — measured from a real routing quote, not a reported figure`
+      : '';
 
   const volumeLines = isBondingCurve
     ? `Trade volume: not available (still on bonding curve — no trade history yet)

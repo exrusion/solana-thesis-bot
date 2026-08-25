@@ -114,7 +114,8 @@ export async function passesSafetyFilters(pair) {
   // would silently enforce a second, stricter liquidity floor rather than
   // measuring anything new.
   const isBondingCurve = pair.dexId === 'pumpfun';
-  if (!isBondingCurve && pair.volume1h < config.minHourlyVolumeUsd) {
+  const isGraduated = pair.dexId === 'pumpswap';
+  if (!isBondingCurve && !isGraduated && pair.volume1h < config.minHourlyVolumeUsd) {
     reasons.push(`1h volume $${pair.volume1h.toFixed(0)} below minimum $${config.minHourlyVolumeUsd}`);
   }
 
