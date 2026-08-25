@@ -15,6 +15,7 @@ import { getOutcomes, getInsightsSummary, getLearningSummary } from './outcomeTr
 import { getScanStats } from './scanStats.js';
 import { getRecentLogs } from './logCapture.js';
 import { getModelStatus } from './mlModel.js';
+import { debugCurveAccount } from './bondingCurve.js';
 import { telegramStatus } from './telegram.js';
 import { askQuestion, ALLOWED_MODELS } from './askEngine.js';
 import { getSolUsdPrice } from './bondingCurve.js';
@@ -96,6 +97,14 @@ app.post('/ask', async (req, res) => {
     ip,
   });
   res.status(result.error ? 429 : 200).json(result);
+});
+
+app.get('/debug/curve/:mint', async (req, res) => {
+  try {
+    res.json(await debugCurveAccount(req.params.mint));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/model', (req, res) => {

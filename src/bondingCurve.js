@@ -109,6 +109,46 @@ export async function getRecentTradeCount(mintAddress, lookbackMinutes = 15) {
   }
 }
 
+/**
+ * Dumps the raw bonding curve account so we can see what is actually in
+ * it rather than trusting an assumed layout. Reads every u64 slot and
+ * shows both the raw value and its SOL/token interpretation, so the
+ * correct offsets can be identified by inspection.
+ */
+export async function debugCurveAccount(mintAddress) {
+  const pda = findBondingCurveAddress(mintAddress);
+  const info = await connection.getAccountInfo(pda);
+  if (!info) return { error: 'no bonding curve account', pda: pda.toBase58() };
+
+  const data = info.data;
+  const slots = [];
+  for (let off = 8; off + 8 <= Math.min(data.length, 120); off += 8) {
+    const raw = data.readBigUInt64LE(off);
+    slots.push({
+      offset: off,
+      raw: raw.toString(),
+      asSol: Number(raw) / 1e9,
+      asTokens6dp: Number(raw) / 1e6,
+    });
+  }
+
+  return {
+    pda: pda.toBase58(),
+    accountSize: data.length,
+    owner: info.owner.toBase58(),
+    currentlyParsedAs: {
+      virtualTokenReserves_off8: data.readBigUInt64LE(8).toString(),
+      virtualSolReserves_off16: data.readBigUInt64LE(16).toString(),
+      realTokenReserves_off24: data.readBigUInt64LE(24).toString(),
+      realSolReserves_off32: data.readBigUInt64LE(32).toString(),
+      tokenTotalSupply_off40: data.readBigUInt64LE(40).toString(),
+      complete_off48: data[48],
+    },
+    allSlots: slots,
+    rawHexFirst64Bytes: data.subarray(0, 64).toString('hex'),
+  };
+}
+
 let cachedSolUsd = null;
 let cachedAt = 0;
 const SOL_PRICE_CACHE_MS = 5 * 60 * 1000;
