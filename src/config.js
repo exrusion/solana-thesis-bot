@@ -88,4 +88,12 @@ export const config = {
   scanIntervalMs: parseInt(process.env.SCAN_INTERVAL_MS || '25000', 10),
   port: parseInt(process.env.PORT || '3000', 10),
   dataDir: process.env.DATA_DIR || 'data',
+
+  // --- Telegram ---
+  // 'trades'  buys and exits only (quiet, the default)
+  // 'theses'  the above plus every AI verdict
+  // 'all'     the above plus every filtered skip — very noisy
+  telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || null,
+  telegramChatId: process.env.TELEGRAM_CHAT_ID || null,
+  telegramLevel: process.env.TELEGRAM_LEVEL || 'trades',
 };

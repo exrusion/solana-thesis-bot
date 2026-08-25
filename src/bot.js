@@ -203,6 +203,14 @@ async function manageOpenPositions() {
           partialExitSol: (pos.partialExitSol || 0) + exitSol,
         });
         recordRealizedPnl(exitSol - pos.entrySolAmount / 2);
+        notifyExit({
+          symbol: pos.symbol,
+          mint: pos.mintAddress,
+          label: action.label,
+          realizedPnlSol: exitSol - pos.entrySolAmount / 2,
+          partial: true,
+          signature: result.signature,
+        });
         logThesis({
           type: 'exit',
           symbol: pos.symbol,
@@ -222,6 +230,14 @@ async function manageOpenPositions() {
           realizedPnlSol,
         });
         recordRealizedPnl(exitSol - (tookFirstProfit ? pos.entrySolAmount / 2 : pos.entrySolAmount));
+        notifyExit({
+          symbol: pos.symbol,
+          mint: pos.mintAddress,
+          label: action.label,
+          realizedPnlSol,
+          partial: false,
+          signature: result.signature,
+        });
         logThesis({
           type: 'exit',
           symbol: pos.symbol,
@@ -440,6 +456,7 @@ async function scanForNewPositions() {
       }
 
       console.log(`[filter] ${pair.symbol} skipped — ${filterResult.reasons.join('; ')}${permanent ? '' : ' (still watching)'}`);
+      notifySkip({ symbol: pair.symbol, mint: pair.mintAddress, reasons: filterResult.reasons });
       logThesis({
         type: 'filtered',
         symbol: pair.symbol,
@@ -506,6 +523,13 @@ async function scanForNewPositions() {
       thesisReasoning: thesis.reasoning,
     });
     console.log(`[thesis] ${pair.symbol} — ${thesis.decision}`);
+    notifyThesis({
+      symbol: pair.symbol,
+      mint: pair.mintAddress,
+      decision: thesis.decision,
+      marketCapUsd: pair.marketCapUsd,
+      reasoning: thesis.reasoning,
+    });
 
     // Seal the decision on chain BEFORE any order exists. A validator
     // timestamps the hash, so the reasoning is provably older than the fill.
@@ -541,6 +565,14 @@ async function scanForNewPositions() {
       try {
         const result = await buyToken(pair.mintAddress, config.maxPositionSizeSol);
         if (sealed) attachFill(sealed.id, result.signature);
+        notifyBuy({
+          symbol: pair.symbol,
+          mint: pair.mintAddress,
+          solAmount: config.maxPositionSizeSol,
+          marketCapUsd: pair.marketCapUsd,
+          reasoning: thesis.reasoning,
+          signature: result.signature,
+        });
         openPosition({
           mintAddress: pair.mintAddress,
           pairAddress: pair.pairAddress,
@@ -616,6 +648,7 @@ console.log('Pump Trade starting.');
 console.log(`max position size: ${config.maxPositionSizeSol} SOL | max concurrent: ${config.maxConcurrentPositions}`);
 console.log(`stop-loss: ${config.stopLossPercent}% | daily loss limit: ${config.maxDailyLossSol} SOL`);
 
+notifyStartup();
 startPumpFunListener();
 tick();
 setInterval(tick, config.scanIntervalMs);

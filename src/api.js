@@ -15,6 +15,7 @@ import { getOutcomes, getInsightsSummary, getLearningSummary } from './outcomeTr
 import { getScanStats } from './scanStats.js';
 import { getRecentLogs } from './logCapture.js';
 import { getModelStatus } from './mlModel.js';
+import { telegramStatus } from './telegram.js';
 import { askQuestion, ALLOWED_MODELS } from './askEngine.js';
 import { getCommitments, getCommitmentStats, verifyAll, sha256 } from './commitment.js';
 import { getSolUsdPrice } from './bondingCurve.js';
@@ -51,6 +52,7 @@ app.get('/status', async (req, res) => {
     stopLossPercent: config.stopLossPercent,
     scanIntervalMs: config.scanIntervalMs,
     lastTickAt: getLastTick(),
+    telegram: telegramStatus(),
     minMarketCapUsd: config.minMarketCapUsd,
     model: config.openRouterModel,
     tickCount: activity.tickCount,
