@@ -82,7 +82,10 @@ export const config = {
   rugcheckMode: process.env.RUGCHECK_MODE || 'behavioral',
   maxRugcheckScore: parseFloat(process.env.MAX_RUGCHECK_SCORE || '50'),
 
-  scanIntervalMs: parseInt(process.env.SCAN_INTERVAL_MS || '60000', 10),
+  // Ticks were completing in ~9s of a 60s budget, and a token that runs
+  // in three minutes only got looked at three times. Faster loop, more
+  // chances to catch a move while it is still moving.
+  scanIntervalMs: parseInt(process.env.SCAN_INTERVAL_MS || '25000', 10),
   port: parseInt(process.env.PORT || '3000', 10),
   dataDir: process.env.DATA_DIR || 'data',
 };

@@ -279,10 +279,20 @@ async function scanForNewPositions() {
   if (!solUsd) {
     console.error('[scan] WARNING: SOL/USD price unavailable — bonding-curve candidates will fall through to the ungated DexScreener path this tick');
   }
-  // Youngest first. A fresh launch waiting six minutes for its turn in a
-  // FIFO queue is a fresh launch we will always be too late for.
-  const ordered = [...pendingFreshMints].sort((a, b) => b.firstSeenAt - a.firstSeenAt);
-  const toCheck = ordered.slice(0, MAX_LOOKUPS_PER_TICK);
+  // Split the budget deliberately. Sorting purely youngest-first meant the
+  // newest N were rechecked every tick and everything older was never
+  // looked at again — so a token that started running fifteen minutes
+  // after launch could never be seen. Half the slots go to fresh arrivals,
+  // half rotate through the rest so nothing under watch goes stale.
+  const FRESH_SLOTS = Math.floor(MAX_LOOKUPS_PER_TICK / 2);
+  const byAge = [...pendingFreshMints].sort((a, b) => b.firstSeenAt - a.firstSeenAt);
+  const freshPicks = byAge.slice(0, FRESH_SLOTS);
+  const freshSet = new Set(freshPicks.map((e) => e.mintAddress));
+
+  const rotationPool = pendingFreshMints.filter((e) => !freshSet.has(e.mintAddress));
+  const rotationPicks = rotationPool.slice(0, MAX_LOOKUPS_PER_TICK - freshPicks.length);
+
+  const toCheck = [...freshPicks, ...rotationPicks];
   const checkedSet = new Set(toCheck.map((e) => e.mintAddress));
   const stillPending = [];
   const freshCandidates = [];
@@ -352,6 +362,7 @@ async function scanForNewPositions() {
   // Tokens we just checked go to the BACK, not the front. Putting them
   // first meant slice(0, N) grabbed the same N every tick and the rest of
   // the pool was never examined at all.
+  // Checked entries go to the back so the rotation actually advances.
   pendingFreshMints = [
     ...pendingFreshMints.filter((e) => !checkedSet.has(e.mintAddress)),
     ...stillPending,
@@ -365,7 +376,7 @@ async function scanForNewPositions() {
 
   console.log(`[scan] ${candidates.length} candidates ready for evaluation this tick`);
   console.log(
-    `[fresh-mints] pending: ${pendingFreshMints.length} | checked this tick: ${toCheck.length} | resolved (session total): ${totalFreshResolved} | given up (session total): ${totalFreshGivenUp}`
+    `[fresh-mints] pending: ${pendingFreshMints.length} | checked: ${toCheck.length} (${freshPicks.length} fresh + ${rotationPicks.length} rotating) | resolved (session total): ${totalFreshResolved} | given up (session total): ${totalFreshGivenUp}`
   );
   const listenerStats = getListenerStats();
   console.log(
