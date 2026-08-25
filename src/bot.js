@@ -32,7 +32,9 @@ import {
 } from './positions.js';
 
 const MAX_PENDING_FRESH_MINTS = 500;
-const MAX_LOOKUPS_PER_TICK = 80; // ticks were finishing in ~9s of 60s — plenty of headroom
+// Each lookup costs several RPC calls. At 80 per tick every 25s this was
+// burning through a Helius quota in hours. Fewer, slower, and cached.
+const MAX_LOOKUPS_PER_TICK = 25;
 const FRESH_MINT_EXPIRY_MS = 2 * 60 * 60 * 1000; // real momentum can take 30+ min to build
 
 let pendingFreshMints = []; // { mintAddress, firstSeenAt, lastRealSolReservesSol } — persists across ticks
@@ -649,6 +651,15 @@ async function tick() {
     tickInProgress = false;
   }
 }
+
+// An unhandled rejection anywhere used to terminate the process. Log and
+// keep running — a bot that dies silently is worse than one that errs.
+process.on('unhandledRejection', (err) => {
+  console.error(`[fatal-guard] unhandled rejection: ${err?.message || err}`);
+});
+process.on('uncaughtException', (err) => {
+  console.error(`[fatal-guard] uncaught exception: ${err?.message || err}`);
+});
 
 console.log('Pump Trade starting.');
 console.log(`max position size: ${config.maxPositionSizeSol} SOL | max concurrent: ${config.maxConcurrentPositions}`);

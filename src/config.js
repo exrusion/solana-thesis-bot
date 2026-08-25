@@ -80,7 +80,7 @@ export const config = {
   // Ticks were completing in ~9s of a 60s budget, and a token that runs
   // in three minutes only got looked at three times. Faster loop, more
   // chances to catch a move while it is still moving.
-  scanIntervalMs: parseInt(process.env.SCAN_INTERVAL_MS || '25000', 10),
+  scanIntervalMs: parseInt(process.env.SCAN_INTERVAL_MS || '45000', 10),
   port: parseInt(process.env.PORT || '3000', 10),
   dataDir: process.env.DATA_DIR || 'data',
 

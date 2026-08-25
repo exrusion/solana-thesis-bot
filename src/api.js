@@ -29,8 +29,15 @@ app.set('trust proxy', true);
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 app.get('/status', async (req, res) => {
-  const balanceLamports = await connection.getBalance(wallet.publicKey);
-  const solBalance = balanceLamports / 1e9;
+  // An RPC failure here used to throw out of the handler and take the
+  // whole process down. Degrade instead: report what we can.
+  let balanceLamports = null;
+  try {
+    balanceLamports = await connection.getBalance(wallet.publicKey);
+  } catch (err) {
+    console.error(`[api] balance lookup failed: ${err.message}`);
+  }
+  const solBalance = balanceLamports === null ? null : balanceLamports / 1e9;
   const activity = getScanStats();
   const solUsd = await getSolUsdPrice();
 
@@ -62,7 +69,7 @@ app.get('/status', async (req, res) => {
     livePositions: activity.livePositions || [],
     rejectionFunnel: activity.rejectionFunnel || {},
     solUsdPrice: solUsd || null,
-    totalEquityUsd: solBalance * (solUsd || 0) + (activity.openPositionsValueUsd || 0),
+    totalEquityUsd: (balanceLamports === null ? 0 : balanceLamports / 1e9) * (solUsd || 0) + (activity.openPositionsValueUsd || 0),
     scanActivity: activity,
   });
 });

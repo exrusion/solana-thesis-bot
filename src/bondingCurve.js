@@ -72,10 +72,16 @@ const SOL_MINT_ADDRESS = 'So11111111111111111111111111111111111111112';
  * showed 0-1 events no matter how busy it really was. Querying the
  * token's own account gives a true count for one extra RPC call.
  */
+const tradeCountCache = new Map();
+const TRADE_COUNT_CACHE_MS = 90 * 1000;
+
 export async function getRecentTradeCount(mintAddress, lookbackMinutes = 15) {
+  const cached = tradeCountCache.get(mintAddress);
+  if (cached && Date.now() - cached.at < TRADE_COUNT_CACHE_MS) return cached.result;
+
   try {
     const pda = findBondingCurveAddress(mintAddress);
-    const sigs = await connection.getSignaturesForAddress(pda, { limit: 400 });
+    const sigs = await connection.getSignaturesForAddress(pda, { limit: 150 });
     if (!sigs.length) return { total: 0, recent: 0, priorRate: 0, acceleration: null };
 
     const nowSec = Date.now() / 1000;
@@ -97,13 +103,15 @@ export async function getRecentTradeCount(mintAddress, lookbackMinutes = 15) {
     // No prior history at all means a brand-new token, not a stalled one.
     const acceleration = priorRate > 0 ? recent / priorRate : null;
 
-    return {
+    const result = {
       total: sigs.length,
       recent,
       priorRate,
       acceleration,
-      hitLimit: sigs.length >= 400,
+      hitLimit: sigs.length >= 150,
     };
+    if (tradeCountCache.size < 3000) tradeCountCache.set(mintAddress, { at: Date.now(), result });
+    return result;
   } catch (err) {
     return null;
   }

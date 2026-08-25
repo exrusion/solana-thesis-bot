@@ -36,7 +36,13 @@ export async function getTokenBalanceRaw(mintAddress) {
  * - mintAuthority still set  -> devs can print more supply
  * - freezeAuthority still set -> devs can freeze your tokens
  */
+// Mint and freeze authority, once revoked, can never come back — so a
+// pass here is permanent and re-checking it every tick was pure waste.
+const mintSafetyCache = new Map();
+
 export async function checkMintSafety(mintAddress) {
+  const cached = mintSafetyCache.get(mintAddress);
+  if (cached) return cached;
   try {
     const mintPubkey = new PublicKey(mintAddress);
     const info = await connection.getParsedAccountInfo(mintPubkey);
@@ -50,13 +56,19 @@ export async function checkMintSafety(mintAddress) {
     const freezeAuthorityRevoked = parsed.freezeAuthority === null;
 
     if (!mintAuthorityRevoked) {
-      return { safe: false, reason: 'mint authority not revoked — supply can be inflated' };
+      const result = { safe: false, reason: 'mint authority not revoked — supply can be inflated' };
+      if (mintSafetyCache.size < 5000) mintSafetyCache.set(mintAddress, result);
+      return result;
     }
     if (!freezeAuthorityRevoked) {
-      return { safe: false, reason: 'freeze authority not revoked — tokens can be frozen' };
+      const result = { safe: false, reason: 'freeze authority not revoked — tokens can be frozen' };
+      if (mintSafetyCache.size < 5000) mintSafetyCache.set(mintAddress, result);
+      return result;
     }
 
-    return { safe: true };
+    const result = { safe: true };
+    if (mintSafetyCache.size < 5000) mintSafetyCache.set(mintAddress, result);
+    return result;
   } catch (err) {
     return { safe: false, reason: `mint check failed: ${err.message}` };
   }
@@ -93,7 +105,13 @@ async function fetchAccountOwners(addresses) {
  * concentrated purely because few wallets have bought yet — an artifact
  * of arithmetic, not a real distribution problem.
  */
+const holderCache = new Map();
+const HOLDER_CACHE_MS = 3 * 60 * 1000;
+
 export async function checkHolderConcentration(mintAddress, maxTopHolderPercent = 20, maxTop10Percent = 30) {
+  const cached = holderCache.get(mintAddress);
+  if (cached && Date.now() - cached.at < HOLDER_CACHE_MS) return cached.result;
+
   try {
     const mintPubkey = new PublicKey(mintAddress);
     const largest = await connection.getTokenLargestAccounts(mintPubkey);
@@ -144,7 +162,7 @@ export async function checkHolderConcentration(mintAddress, maxTopHolderPercent 
       reasons.push(`top 10 holders control ${top10Percent.toFixed(1)}% of total supply`);
     }
 
-    return {
+    const result = {
       safe: reasons.length === 0,
       reason: reasons.join('; '),
       topHolderPercent,
@@ -152,6 +170,8 @@ export async function checkHolderConcentration(mintAddress, maxTopHolderPercent 
       realHolderCount: realHolders.length,
       poolPercent: (poolAmount / totalSupply) * 100,
     };
+    if (holderCache.size < 3000) holderCache.set(mintAddress, { at: Date.now(), result });
+    return result;
   } catch (err) {
     return { safe: false, reason: `holder check failed: ${err.message}` };
   }

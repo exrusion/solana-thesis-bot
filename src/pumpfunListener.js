@@ -18,14 +18,18 @@ const BLOCKED_MINTS = new Set([
 ]);
 
 const MAX_QUEUE = 400; // was saturating at 150, dropping most trade events
-const PROCESS_INTERVAL_MS = 400; // 1 per 1.2s could not keep up with the event rate
+// This was resolving ~150 transactions a minute on its own. Discovery
+// does not need that density; the scan loop re-checks everything anyway.
+const PROCESS_INTERVAL_MS = 2500;
 const MAX_RETRIES = 5;
 const RETRY_DELAY_MS = 600;
 
 // Trades are now parsed for real buyer/volume statistics, not just
 // discovery — so we sample far more of them than before. Still not 1:1,
 // since resolution costs an RPC call each.
-const TRADE_SAMPLE_RATE = 8;
+// Trade sampling is now only a discovery hint — real activity is measured
+// per token in the scan loop — so it can be far sparser.
+const TRADE_SAMPLE_RATE = 80;
 
 const freshMints = []; // resolved: { mintAddress, detectedAt }
 // Separate queues so high-volume trade sampling can never starve creates —
