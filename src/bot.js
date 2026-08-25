@@ -11,6 +11,16 @@ import { getTokenBalanceRaw } from './rpc.js';
 import { startPumpFunListener, drainFreshMints, getListenerStats } from './pumpfunListener.js';
 import { recordEvaluation, processDueCheckpoints } from './outcomeTracker.js';
 import { updateScanStats, incrementTickCount } from './scanStats.js';
+import { trainModel, predictSurvival } from './mlModel.js';
+import { getAllOutcomeRecords } from './outcomeTracker.js';
+import { sealDecision, attachFill } from './commitment.js';
+import {
+  notifyBuy,
+  notifyExit,
+  notifyThesis,
+  notifySkip,
+  notifyStartup,
+} from './telegram.js';
 import {
   getOpenPositions,
   openPosition,
