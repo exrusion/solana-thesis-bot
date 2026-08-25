@@ -14,11 +14,6 @@ export const config = {
 
   walletPrivateKey: required('WALLET_PRIVATE_KEY'),
 
-  // Separate burner key that ONLY writes decision hashes to Solana memos.
-  // It never holds the book and cannot sign a swap — that separation is
-  // the point. Optional: without it the bot trades but cannot prove that
-  // its reasoning predated the fill.
-  memoPrivateKey: process.env.MEMO_PRIVATE_KEY || null,
 
   openRouterApiKey: required('OPENROUTER_API_KEY'),
   openRouterModel: process.env.OPENROUTER_MODEL || 'anthropic/claude-sonnet-4.5',

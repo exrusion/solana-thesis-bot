@@ -13,7 +13,6 @@ import { recordEvaluation, processDueCheckpoints } from './outcomeTracker.js';
 import { updateScanStats, incrementTickCount } from './scanStats.js';
 import { trainModel, predictSurvival } from './mlModel.js';
 import { getAllOutcomeRecords } from './outcomeTracker.js';
-import { sealDecision, attachFill } from './commitment.js';
 import {
   notifyBuy,
   notifyExit,
@@ -538,43 +537,16 @@ async function scanForNewPositions() {
       mint: pair.mintAddress,
       decision: thesis.decision,
       marketCapUsd: pair.marketCapUsd,
+      liquidityUsd: pair.liquidityUsd,
+      recentTrades: stats.recentTrades,
       reasoning: thesis.reasoning,
-    });
-
-    // Seal the decision on chain BEFORE any order exists. A validator
-    // timestamps the hash, so the reasoning is provably older than the fill.
-    const sealed = await sealDecision({
-      mint: pair.mintAddress,
-      symbol: pair.symbol,
-      verdict: thesis.decision === 'hold' ? 'act' : 'pass',
-      reasoning: thesis.reasoning,
-      stats: {
-        marketCapUsd: stats.marketCapUsd,
-        liquidityUsd: stats.liquidityUsd,
-        recentTrades15m: stats.recentTrades,
-        topHolderPercent: stats.topHolderPercent,
-        top10Percent: stats.top10Percent,
-        buySellRatio: stats.buySellRatio,
-        poolPercent: stats.poolPercent,
-        rugcheckScore: stats.rugcheckScore,
-        mlSurvivalProbability: stats.mlSurvivalProbability,
-      },
-      rules: {
-        marketCapBandUsd: [config.minMarketCapUsd, config.maxMarketCapUsd],
-        minLiquidityUsd: config.minLiquidityUsd,
-        minRecentTrades15m: config.minRecentTrades,
-        maxTopHolderPercent: config.maxTopHolderPercent,
-        maxTop10Percent: config.maxTop10Percent,
-        positionSizeSol: config.maxPositionSizeSol,
-        stopLossPercent: config.stopLossPercent,
-      },
+      invalidation: thesis.invalidationCondition,
     });
 
     if (thesis.decision === 'hold') {
       console.log(`[entry] ${pair.symbol} — thesis says hold, buying`);
       try {
         const result = await buyToken(pair.mintAddress, config.maxPositionSizeSol);
-        if (sealed) attachFill(sealed.id, result.signature);
         notifyBuy({
           symbol: pair.symbol,
           mint: pair.mintAddress,

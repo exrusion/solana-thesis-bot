@@ -93,17 +93,38 @@ export function notifyExit({ symbol, mint, label, realizedPnlSol, partial, signa
   push(lines.join('\n'));
 }
 
-export function notifyThesis({ symbol, mint, decision, marketCapUsd, reasoning }) {
+export function notifyThesis({
+  symbol,
+  mint,
+  decision,
+  marketCapUsd,
+  liquidityUsd,
+  recentTrades,
+  reasoning,
+  invalidation,
+}) {
   if (!levelAllows('theses')) return;
-  if (decision === 'hold') return; // buys are announced separately
+  if (decision === 'hold') return; // buys are announced separately with fuller detail
+
+  const stats = [
+    marketCapUsd ? `mcap ${'$' + Math.round(marketCapUsd).toLocaleString()}` : null,
+    liquidityUsd ? `liq ${'$' + Math.round(liquidityUsd).toLocaleString()}` : null,
+    recentTrades !== undefined && recentTrades !== null ? `${recentTrades} tx/15m` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   const lines = [
     `⚪️ *PASSED ON* $${esc(symbol)}`,
-    `mcap ${esc('$' + Math.round(marketCapUsd || 0).toLocaleString())}`,
+    stats ? esc(stats) : '',
     '',
-    ...(reasoning || []).slice(0, 2).map((r) => `• ${esc(r)}`),
+    // full reasoning, not a truncated preview — this is the part worth reading
+    ...(reasoning || []).map((r) => `• ${esc(r)}`),
+    invalidation ? `\n_${esc('would reconsider if: ' + invalidation)}_` : '',
     '',
     `[chart](https://pump.fun/coin/${mint})`,
-  ];
+  ].filter((l) => l !== '');
+
   push(lines.join('\n'));
 }
 
