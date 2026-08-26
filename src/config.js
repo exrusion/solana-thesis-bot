@@ -59,7 +59,9 @@ export const config = {
   // tighten them back once a buy and sell have completed cleanly.
   requireActivityIncreasing: process.env.REQUIRE_ACTIVITY_INCREASING === 'true',
   requireTradeActivity: process.env.REQUIRE_TRADE_ACTIVITY !== 'false',
-  minTokenAgeMinutes: parseFloat(process.env.MIN_TOKEN_AGE_MINUTES || '2'),
+  // Give a launch time to show what it actually is before judging it.
+  // At two minutes most tokens have barely had a second buyer.
+  minTokenAgeMinutes: parseFloat(process.env.MIN_TOKEN_AGE_MINUTES || '5'),
   // Fresh launches cannot have a baseline to accelerate against, and the
   // normal rotation would judge them long after the move. Tokens younger
   // than this get checked first and evaluated on sight, provided they

@@ -377,6 +377,15 @@ async function scanForNewPositions() {
       continue;
     }
 
+    // Only treat this as graduated when the curve actually says so. A
+    // failed read is not evidence of graduation, and routing it down this
+    // path skipped the age and market cap gates entirely — which is how
+    // sub-$5k and 6-second-old tokens ended up being evaluated.
+    if (!curve || !curve.complete) {
+      stillPending.push(entry);
+      continue;
+    }
+
     // Graduated to PumpSwap. Read price, supply and executable depth
     // directly rather than waiting for an indexer to catch up — that lag
     // is what made a live $52k token read as having no liquidity.
